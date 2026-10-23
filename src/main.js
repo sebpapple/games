@@ -318,7 +318,6 @@ function renderZipGame(route) {
           <div class="game-status" id="zip-status" role="status" aria-live="polite"></div>
           <div class="game-actions">
             <div class="action-buttons">
-              <button class="secondary-button" id="zip-undo" type="button">${t('undo')}</button>
               <button class="secondary-button" id="zip-reset" type="button">${t('restart')}</button>
             </div>
           </div>
@@ -346,7 +345,6 @@ function renderZipGame(route) {
   app.querySelector('#zip-difficulty').addEventListener('change', (event) => {
     router.navigateRandom('zip', event.target.value);
   });
-  app.querySelector('#zip-undo').addEventListener('click', undoZipStep);
   app.querySelector('#zip-reset').addEventListener('click', resetZipPath);
   const board = app.querySelector('#zip-board');
   board.addEventListener('click', handleZipBoardClick);
@@ -511,8 +509,6 @@ function renderZipBoard() {
       });
   }
   board.classList.toggle('is-complete', state.completed);
-  app.querySelector('#zip-undo').disabled =
-    state.completed || state.path.length <= 1;
   app.querySelector('#zip-reset').disabled =
     state.completed || state.path.length <= 1;
 }
@@ -785,7 +781,6 @@ function visitZipCell(row, col, fromDrag = false) {
     (cell) => cell.row === row && cell.col === col,
   );
   if (existingPathIndex >= 0) {
-    if (fromDrag) return;
     if (existingPathIndex < path.length - 1) {
       path.splice(existingPathIndex + 1);
     }
@@ -811,14 +806,6 @@ function visitZipCell(row, col, fromDrag = false) {
   }
 
   path.push(candidate);
-  state.message = '';
-  renderZipBoard();
-}
-
-function undoZipStep() {
-  const state = activeGameState;
-  if (!state || state.game !== 'zip' || state.completed || state.path.length <= 1) return;
-  state.path.pop();
   state.message = '';
   renderZipBoard();
 }
