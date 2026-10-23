@@ -10,7 +10,6 @@ const LANGUAGES = {
 const translations = {
   fr: {
     language: 'Langue',
-    offline: 'Jouable hors ligne',
     eyebrow: 'PAUSE LOGIQUE',
     heroTitle: 'Un jeu. Une grille.<br />À vous de jouer.',
     intro: 'Quatre défis de logique à retrouver, même sans connexion.',
@@ -20,7 +19,6 @@ const translations = {
     zipDescription: 'Reliez les nœuds et remplissez toute la grille.',
     tangoDescription: 'Équilibrez soleils et lunes selon les règles.',
     comingSoonDescription: 'Moteur de jeu à venir',
-    savedLocally: 'Progression sauvegardée sur cet appareil.',
     allGames: 'Tous les jeux',
     comingSoon: 'Ce jeu arrive bientôt.',
     comingSoonBody: 'Le socle est prêt ; ce moteur sera ajouté dans une prochaine étape.',
@@ -121,7 +119,6 @@ const translations = {
   },
   en: {
     language: 'Language',
-    offline: 'Playable offline',
     eyebrow: 'A LOGICAL BREAK',
     heroTitle: 'One game. One grid.<br />Your move.',
     intro: 'Four logic challenges, ready to play even offline.',
@@ -131,7 +128,6 @@ const translations = {
     zipDescription: 'Connect the nodes and fill the whole grid.',
     tangoDescription: 'Balance suns and moons by the rules.',
     comingSoonDescription: 'Game coming soon',
-    savedLocally: 'Progress is saved on this device.',
     allGames: 'All games',
     comingSoon: 'This game is coming soon.',
     comingSoonBody: 'The foundation is ready; this game will be added in a future update.',
@@ -232,7 +228,6 @@ const translations = {
   },
   de: {
     language: 'Sprache',
-    offline: 'Offline spielbar',
     eyebrow: 'DENKPAUSE',
     heroTitle: 'Ein Spiel. Ein Raster.<br />Du bist dran.',
     intro: 'Vier Logikrätsel – auch offline spielbar.',
@@ -242,7 +237,6 @@ const translations = {
     zipDescription: 'Verbinde die Knoten und fülle das ganze Raster.',
     tangoDescription: 'Bringe Sonne und Mond nach den Regeln ins Gleichgewicht.',
     comingSoonDescription: 'Spiel folgt bald',
-    savedLocally: 'Dein Fortschritt wird auf diesem Gerät gespeichert.',
     allGames: 'Alle Spiele',
     comingSoon: 'Dieses Spiel kommt bald.',
     comingSoonBody: 'Die Grundlage steht; das Spiel folgt in einem zukünftigen Update.',
@@ -343,7 +337,6 @@ const translations = {
   },
   es: {
     language: 'Idioma',
-    offline: 'Disponible sin conexión',
     eyebrow: 'PAUSA LÓGICA',
     heroTitle: 'Un juego. Una cuadrícula.<br />Tu turno.',
     intro: 'Cuatro retos de lógica para jugar incluso sin conexión.',
@@ -353,7 +346,6 @@ const translations = {
     zipDescription: 'Conecta los nodos y completa toda la cuadrícula.',
     tangoDescription: 'Equilibra soles y lunas según las reglas.',
     comingSoonDescription: 'Próximamente',
-    savedLocally: 'El progreso se guarda en este dispositivo.',
     allGames: 'Todos los juegos',
     comingSoon: 'Este juego estará disponible pronto.',
     comingSoonBody: 'La base está lista; el juego se añadirá en una próxima actualización.',
@@ -454,7 +446,6 @@ const translations = {
   },
   it: {
     language: 'Lingua',
-    offline: 'Giocabile offline',
     eyebrow: 'PAUSA LOGICA',
     heroTitle: 'Un gioco. Una griglia.<br />Tocca a te.',
     intro: 'Quattro sfide di logica, anche senza connessione.',
@@ -464,7 +455,6 @@ const translations = {
     zipDescription: 'Collega i nodi e completa tutta la griglia.',
     tangoDescription: 'Bilancia soli e lune seguendo le regole.',
     comingSoonDescription: 'In arrivo',
-    savedLocally: 'I progressi vengono salvati su questo dispositivo.',
     allGames: 'Tutti i giochi',
     comingSoon: 'Questo gioco arriverà presto.',
     comingSoonBody: 'La base è pronta; il gioco sarà aggiunto in un prossimo aggiornamento.',
@@ -565,7 +555,6 @@ const translations = {
   },
   zh: {
     language: '语言',
-    offline: '可离线游玩',
     eyebrow: '逻辑时光',
     heroTitle: '一个游戏，一张棋盘。<br />轮到你了。',
     intro: '四种逻辑挑战，离线也能畅玩。',
@@ -575,7 +564,6 @@ const translations = {
     zipDescription: '连接数字节点并走遍整个棋盘。',
     tangoDescription: '按照规则平衡太阳与月亮。',
     comingSoonDescription: '即将推出',
-    savedLocally: '进度保存在此设备上。',
     allGames: '所有游戏',
     comingSoon: '游戏即将推出。',
     comingSoonBody: '基础功能已就绪，游戏将在后续更新中加入。',

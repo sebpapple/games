@@ -119,7 +119,6 @@ function renderHome() {
       <header class="topbar">
         <a class="brand" href="#/">Grid Games</a>
         <div class="topbar-actions">
-          <span class="offline-label"><span></span> ${t('offline')}</span>
           ${renderLanguageSelector()}
         </div>
       </header>
@@ -138,7 +137,6 @@ function renderHome() {
           </a>
         `).join('')}
       </section>
-      <footer class="site-footer">${t('savedLocally')}</footer>
     </main>
   `;
 
@@ -461,12 +459,6 @@ function renderZipBoard() {
       checkpoint.number,
     ]),
   );
-  const wallEdges = new Set(
-    (state.puzzle.walls ?? []).map(
-      ({ row, col, direction }) => `${row},${col},${direction}`,
-    ),
-  );
-
   board.innerHTML = Array.from({ length: state.puzzle.size }, (_, row) =>
     Array.from({ length: state.puzzle.size }, (_, col) => {
       const key = `${row},${col}`;
@@ -474,21 +466,18 @@ function renderZipBoard() {
       const checkpoint = checkpoints.get(key);
       const isPath = pathIndex !== undefined;
       const content = checkpoint ? `<span class="zip-node">${checkpoint}</span>` : '';
-      const wallClasses = [
-        wallEdges.has(`${row},${col},right`) ? 'has-wall-right' : '',
-        wallEdges.has(`${row},${col},down`) ? 'has-wall-down' : '',
-      ].filter(Boolean).join(' ');
       const stateLabel = checkpoint
         ? t('zipNode', { number: checkpoint })
         : isPath
           ? t('zipStep', { number: pathIndex + 1 })
           : t('emptyCell');
-      return `<button class="zip-cell ${isPath ? 'is-path' : ''} ${checkpoint ? 'is-checkpoint' : ''} ${wallClasses}"
+      return `<button class="zip-cell ${isPath ? 'is-path' : ''} ${checkpoint ? 'is-checkpoint' : ''}"
         type="button" role="gridcell" aria-label="${t('rowColumn', { row: row + 1, col: col + 1, state: stateLabel })}"
         data-row="${row}" data-col="${col}" style="--zip-cell-index:${row * state.puzzle.size + col}">${content}</button>`;
     }),
   ).flat().join('');
   board.insertAdjacentHTML('beforeend', createZipPathSvg(state));
+  board.insertAdjacentHTML('beforeend', createZipWallsSvg(state.puzzle));
 
   const status = app.querySelector('#zip-status');
   if (validation.won && !state.completed) {
@@ -672,6 +661,21 @@ function createZipPathSvg(state) {
   </svg>`;
 }
 
+function createZipWallsSvg(puzzle) {
+  const scale = 100;
+  const walls = puzzle.walls ?? [];
+  const paths = walls.map(({ row, col, direction }) => {
+    if (direction === 'right') {
+      return `M ${(col + 1) * scale} ${row * scale} V ${(row + 1) * scale}`;
+    }
+    return `M ${col * scale} ${(row + 1) * scale} H ${(col + 1) * scale}`;
+  });
+
+  return `<svg class="zip-walls-svg" viewBox="0 0 ${puzzle.size * scale} ${puzzle.size * scale}" aria-hidden="true">
+    <g>${paths.map((path) => `<path d="${path}" />`).join('')}</g>
+  </svg>`;
+}
+
 function getZipCheckpointProgress(state) {
   return state.path.reduce((progress, cell) => {
     const checkpoint = state.puzzle.checkpoints[progress];
@@ -833,23 +837,19 @@ function renderQueensBoard() {
       const hasQueen = placementKeys.has(key);
       const hasConflict = conflictKeys.has(key);
       const isHinted = state.hintCells.has(key);
-      const regionEdgeRight =
-        colIndex < state.puzzle.size - 1 && region !== row[colIndex + 1];
-      const regionEdgeBottom =
-        rowIndex < state.puzzle.size - 1 &&
-        region !== state.puzzle.regions[rowIndex + 1][colIndex];
       const stateLabel = hasQueen ? t('queen') : cellState === 'excluded' ? t('eliminated') : t('blank');
       const marker = hasQueen
         ? '<span class="queen-marker" aria-hidden="true">♛</span>'
         : cellState === 'excluded'
           ? '<span class="excluded-marker" aria-hidden="true">×</span>'
           : '';
-      return `<button class="queen-cell ${hasConflict ? 'has-conflict' : ''} ${isHinted ? 'is-hinted' : ''} ${regionEdgeRight ? 'region-edge-right' : ''} ${regionEdgeBottom ? 'region-edge-bottom' : ''}"
+      return `<button class="queen-cell ${hasConflict ? 'has-conflict' : ''} ${isHinted ? 'is-hinted' : ''}"
         type="button" role="gridcell" aria-label="${t('queensCell', { row: rowIndex + 1, col: colIndex + 1, state: stateLabel })}"
         aria-pressed="${cellState !== 'empty'}" style="--region-color:${REGION_COLORS[region % REGION_COLORS.length]}"
         data-row="${rowIndex}" data-col="${colIndex}">${marker}</button>`;
     }),
   ).join('');
+  board.insertAdjacentHTML('beforeend', createQueensRegionsSvg(state.puzzle));
 
   const hintButton = app.querySelector('#queens-hint');
   hintButton.disabled = state.completed;
@@ -874,6 +874,27 @@ function renderQueensBoard() {
       t('queensProgress', { placed: state.placements.length, total: state.puzzle.size });
     board.classList.remove('is-complete');
   }
+}
+
+function createQueensRegionsSvg(puzzle) {
+  const scale = 100;
+  const { size, regions } = puzzle;
+  const horizontal = [];
+  const vertical = [];
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      if (col < size - 1 && regions[row][col] !== regions[row][col + 1]) {
+        vertical.push({ x: (col + 1) * scale, y1: row * scale, y2: (row + 1) * scale });
+      }
+      if (row < size - 1 && regions[row][col] !== regions[row + 1][col]) {
+        horizontal.push({ y: (row + 1) * scale, x1: col * scale, x2: (col + 1) * scale });
+      }
+    }
+  }
+
+  return `<svg class="queens-regions-svg" viewBox="0 0 ${size * scale} ${size * scale}" aria-hidden="true">
+    <g>${vertical.map(({ x, y1, y2 }) => `<path d="M ${x} ${y1} V ${y2}" />`).join('')}${horizontal.map(({ y, x1, x2 }) => `<path d="M ${x1} ${y} H ${x2}" />`).join('')}</g>
+  </svg>`;
 }
 
 function handleQueensBoardClick(event) {
@@ -1157,6 +1178,8 @@ function localizeQueensConflict(reason) {
 function render(route) {
   currentRoute = route;
   document.documentElement.lang = getCurrentLocale().split('-')[0];
+  document.body.dataset.gameTheme =
+    route.name === 'game' ? route.game : 'home';
   if (route.name === 'home') {
     renderHome();
   } else if (route.name === 'game') {
