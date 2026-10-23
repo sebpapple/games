@@ -11,14 +11,17 @@ import {
   validateTango,
 } from './games/tango.js';
 import { recordLevelCompletion } from './progress.js';
+import {
+  getCurrentLanguage,
+  getCurrentLocale,
+  getLanguage,
+  getLanguageOptions,
+  getGameName,
+  setLanguage,
+  translate as t,
+} from './i18n.js';
 
 const app = document.querySelector('#app');
-const GAME_NAMES = {
-  patches: 'Patches',
-  zip: 'Zip',
-  queens: 'Queens',
-  tango: 'Tango',
-};
 const REGION_COLORS = [
   '#8db7f5',
   '#f9c58f',
@@ -33,6 +36,71 @@ const AVAILABLE_GAMES = new Set(['queens', 'zip', 'tango']);
 
 let router;
 let activeGameState = null;
+let currentRoute = null;
+
+getLanguage();
+
+function renderLanguageSelector() {
+  const languages = getLanguageOptions();
+  const selectedLanguage = languages.find(({ code }) => code === getCurrentLanguage());
+  const options = languages.map(({ code, name }) =>
+    `<button class="language-option" type="button" data-language="${code}" ${code === getCurrentLanguage() ? 'aria-current="true"' : ''}>
+      ${renderFlagIcon(code)}<span>${name}</span>
+    </button>`,
+  ).join('');
+  return `<details class="language-picker">
+    <summary class="language-trigger" aria-label="${t('language')}: ${selectedLanguage.name}">
+      ${renderFlagIcon(getCurrentLanguage())}<span>${selectedLanguage.name}</span>
+    </summary>
+    <div class="language-menu">${options}</div>
+  </details>`;
+}
+
+function attachLanguageSelector() {
+  app.querySelectorAll('.language-option').forEach((option) => {
+    option.addEventListener('click', () => {
+      const previousState = activeGameState;
+      setLanguage(option.dataset.language);
+      render(currentRoute);
+      if (previousState && activeGameState?.game === previousState.game) {
+        activeGameState = previousState;
+        if (previousState.hintData) {
+          previousState.hintMessage =
+            previousState.game === 'tango'
+              ? formatTangoHint(previousState.hintData)
+              : formatQueensHint(previousState.hintData);
+        } else if (previousState.hintMessage) {
+          previousState.hintMessage = t(
+            previousState.game === 'tango' ? 'tangoNoHint' : 'queensNoHint',
+          );
+        }
+        if (previousState.game === 'zip') renderZipBoard();
+        else if (previousState.game === 'tango') renderTangoBoard();
+        else renderQueensBoard();
+      }
+    });
+  });
+}
+
+function renderFlagIcon(language) {
+  const flags = {
+    fr: '<path fill="#1b3c8c" d="M0 0h12v24H0z"/><path fill="#fff" d="M12 0h12v24H12z"/><path fill="#ed2939" d="M24 0h12v24H24z"/>',
+    en: '<path fill="#1b3c8c" d="M0 0h36v24H0z"/><path stroke="#fff" stroke-width="6" d="m0 0 36 24M36 0 0 24"/><path stroke="#c8102e" stroke-width="2.5" d="m0 0 36 24M36 0 0 24"/><path stroke="#fff" stroke-width="9" d="M18 0v24M0 12h36"/><path stroke="#c8102e" stroke-width="5" d="M18 0v24M0 12h36"/>',
+    de: '<path fill="#111" d="M0 0h36v8H0z"/><path fill="#d00" d="M0 8h36v8H0z"/><path fill="#ffce00" d="M0 16h36v8H0z"/>',
+    es: '<path fill="#aa151b" d="M0 0h36v24H0z"/><path fill="#f1bf00" d="M0 6h36v12H0z"/><path fill="#aa151b" d="M0 18h36v6H0z"/>',
+    it: '<path fill="#009246" d="M0 0h12v24H0z"/><path fill="#fff" d="M12 0h12v24H12z"/><path fill="#ce2b37" d="M24 0h12v24H24z"/>',
+    zh: '<path fill="#de2910" d="M0 0h36v24H0z"/><path fill="#ffde00" d="m8 4 1.2 3.4 3.6.1-2.9 2.1 1.1 3.4L8 11l-3 2 1.1-3.4-2.9-2.1 3.6-.1z"/>',
+  };
+  return `<svg class="language-flag" viewBox="0 0 36 24" aria-hidden="true" focusable="false">${flags[language]}</svg>`;
+}
+
+function difficultyLabel(difficulty) {
+  return t({
+    facile: 'easy',
+    moyen: 'medium',
+    difficile: 'hard',
+  }[difficulty] ?? 'random');
+}
 
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -50,27 +118,31 @@ function renderHome() {
     <main class="shell">
       <header class="topbar">
         <a class="brand" href="#/">Grid Games</a>
-        <span class="offline-label"><span></span> Jouable hors ligne</span>
+        <div class="topbar-actions">
+          <span class="offline-label"><span></span> ${t('offline')}</span>
+          ${renderLanguageSelector()}
+        </div>
       </header>
       <section class="hero">
-        <p class="eyebrow">PAUSE LOGIQUE</p>
-        <h1>Un jeu. Une grille.<br />À vous de jouer.</h1>
-        <p class="intro">Quatre défis de logique à retrouver, même sans connexion.</p>
+        <p class="eyebrow">${t('eyebrow')}</p>
+        <h1>${t('heroTitle')}</h1>
+        <p class="intro">${t('intro')}</p>
       </section>
-      <section class="game-list" aria-label="Choisir un jeu">
-        ${Object.entries(GAME_NAMES).map(([game, name]) => `
+      <section class="game-list" aria-label="${t('chooseGame')}">
+        ${['patches', 'zip', 'queens', 'tango'].map((game) => `
           <a class="game-card ${AVAILABLE_GAMES.has(game) ? 'available' : 'coming-soon'}"
              href="#/game/${game}/random" ${AVAILABLE_GAMES.has(game) ? '' : 'aria-disabled="true"'}>
-            <span class="game-title">${name}</span>
-            <span class="game-description">${game === 'queens' ? 'Une reine par ligne, colonne et région.' : game === 'zip' ? 'Reliez les nœuds et remplissez toute la grille.' : game === 'tango' ? 'Équilibrez soleils et lunes selon les règles.' : 'Moteur de jeu à venir'}</span>
+            <span class="game-title">${getGameName(game)}</span>
+            <span class="game-description">${t(`${game}Description`)}</span>
             <span class="card-arrow" aria-hidden="true">${AVAILABLE_GAMES.has(game) ? '→' : '·'}</span>
           </a>
         `).join('')}
       </section>
-      <footer class="site-footer">Progression sauvegardée sur cet appareil.</footer>
+      <footer class="site-footer">${t('savedLocally')}</footer>
     </main>
   `;
 
+  attachLanguageSelector();
   for (const link of app.querySelectorAll('.coming-soon')) {
     link.addEventListener('click', (event) => event.preventDefault());
   }
@@ -93,16 +165,20 @@ function renderGame(route) {
       <main class="shell">
         <header class="topbar">
           <a class="brand" href="#/">Grid Games</a>
-          <a class="back-link" href="#/">Tous les jeux</a>
+          <div class="topbar-actions">
+            <a class="back-link" href="#/">${t('allGames')}</a>
+            ${renderLanguageSelector()}
+          </div>
         </header>
         <section class="placeholder">
-          <p class="eyebrow">${escapeHtml(GAME_NAMES[route.game])}</p>
-          <h1>Ce jeu arrive bientôt.</h1>
-          <p>Le socle est prêt ; ce moteur sera ajouté dans une prochaine étape.</p>
-          <a class="primary-button" href="#/">Retour aux jeux</a>
+          <p class="eyebrow">${escapeHtml(getGameName(route.game))}</p>
+          <h1>${t('comingSoon')}</h1>
+          <p>${t('comingSoonBody')}</p>
+          <a class="primary-button" href="#/">${t('home')}</a>
         </section>
       </main>
     `;
+    attachLanguageSelector();
     return;
   }
 
@@ -114,6 +190,7 @@ function renderGame(route) {
     cellStates: new Map(),
     hintMessage: '',
     hintCells: new Set(),
+    hintData: null,
     dragging: null,
     suppressClick: false,
     startedAt: Date.now(),
@@ -124,53 +201,57 @@ function renderGame(route) {
     <main class="shell game-shell">
       <header class="topbar">
         <a class="brand" href="#/">Grid Games</a>
-        <a class="back-link" href="#/">Tous les jeux</a>
+        <div class="topbar-actions">
+          <a class="back-link" href="#/">${t('allGames')}</a>
+          ${renderLanguageSelector()}
+        </div>
       </header>
       <section class="game-heading">
         <div>
-          <p class="eyebrow">JEU 01 · LOGIQUE</p>
+          <p class="eyebrow">01 · ${t('gameLogic')}</p>
           <h1>Queens</h1>
           <div class="level-meta">
-            <span class="difficulty-badge difficulty-${puzzle.difficulty}">${capitalize(puzzle.difficulty)}</span>
+            <span class="difficulty-badge difficulty-${puzzle.difficulty}">${difficultyLabel(puzzle.difficulty)}</span>
           </div>
-          <p class="game-instructions">Placez une reine par ligne, colonne et région. Les reines ne peuvent pas se toucher.</p>
+          <p class="game-instructions">${t('queensInstructions')}</p>
         </div>
         <div class="level-control">
-          <label class="difficulty-select-label" for="difficulty-select">Difficulté</label>
-          <select class="difficulty-select" id="difficulty-select" aria-label="Choisir la difficulté">
-            <option value="aleatoire" ${selectedDifficulty === 'aleatoire' ? 'selected' : ''}>Aléatoire</option>
-            <option value="facile" ${selectedDifficulty === 'facile' ? 'selected' : ''}>Facile</option>
-            <option value="moyen" ${selectedDifficulty === 'moyen' ? 'selected' : ''}>Moyen</option>
-            <option value="difficile" ${selectedDifficulty === 'difficile' ? 'selected' : ''}>Difficile</option>
+          <label class="difficulty-select-label" for="difficulty-select">${t('difficulty')}</label>
+          <select class="difficulty-select" id="difficulty-select" aria-label="${t('selectDifficulty')}">
+            <option value="aleatoire" ${selectedDifficulty === 'aleatoire' ? 'selected' : ''}>${t('random')}</option>
+            <option value="facile" ${selectedDifficulty === 'facile' ? 'selected' : ''}>${t('easy')}</option>
+            <option value="moyen" ${selectedDifficulty === 'moyen' ? 'selected' : ''}>${t('medium')}</option>
+            <option value="difficile" ${selectedDifficulty === 'difficile' ? 'selected' : ''}>${t('hard')}</option>
           </select>
-          <button class="secondary-button random-level-button" id="random-level" type="button">Nouveau niveau aléatoire <span aria-hidden="true">↻</span></button>
+          <button class="secondary-button random-level-button" id="random-level" type="button">${t('newRandomLevel')} <span aria-hidden="true">↻</span></button>
         </div>
       </section>
       <section class="play-area">
         <div class="board-wrap">
-          <div id="queens-board" class="queens-board" role="grid" aria-label="Grille Queens générée aléatoirement"></div>
+          <div id="queens-board" class="queens-board" role="grid" aria-label="${t('randomGridLabel')}"></div>
           <div class="game-status" id="game-status" role="status" aria-live="polite"></div>
           <div class="game-actions">
             <div class="action-buttons">
-              <button class="secondary-button" id="clear-board" type="button">Effacer</button>
-              <button class="secondary-button hint-button" id="queens-hint" type="button">Indice</button>
+              <button class="secondary-button" id="clear-board" type="button">${t('erase')}</button>
+              <button class="secondary-button hint-button" id="queens-hint" type="button">${t('hint')}</button>
             </div>
           </div>
         </div>
         <aside class="rules-card">
           <span class="rules-icon" aria-hidden="true">♛</span>
-          <h2>Comment jouer</h2>
+          <h2>${t('howToPlay')}</h2>
           <ol>
-            <li>Une seule reine sur chaque ligne.</li>
-            <li>Une seule reine sur chaque colonne et région colorée.</li>
-            <li>Aucune reine ne doit toucher une autre, même en diagonale.</li>
+            <li>${t('queenRuleRow')}</li>
+            <li>${t('queenRuleColumn')}</li>
+            <li>${t('queenRuleTouch')}</li>
           </ol>
-          <p>Cliquez une fois pour marquer une case, une deuxième fois pour placer une reine, puis une troisième fois pour l’effacer. Faites glisser pour ajouter ou retirer plusieurs croix d’un coup.</p>
+          <p>${t('queenHowTo')}</p>
         </aside>
       </section>
     </main>
   `;
 
+  attachLanguageSelector();
   app.querySelector('#random-level').addEventListener('click', () => {
     router.navigateRandom('queens', selectedDifficulty);
   });
@@ -206,55 +287,59 @@ function renderZipGame(route) {
     <main class="shell game-shell">
       <header class="topbar">
         <a class="brand" href="#/">Grid Games</a>
-        <a class="back-link" href="#/">Tous les jeux</a>
+        <div class="topbar-actions">
+          <a class="back-link" href="#/">${t('allGames')}</a>
+          ${renderLanguageSelector()}
+        </div>
       </header>
       <section class="game-heading">
         <div>
-          <p class="eyebrow">JEU 02 · PARCOURS</p>
+          <p class="eyebrow">02 · ${t('gamePath')}</p>
           <h1>Zip</h1>
           <div class="level-meta">
-            <span class="difficulty-badge difficulty-${puzzle.difficulty}">${capitalize(puzzle.difficulty)}</span>
+            <span class="difficulty-badge difficulty-${puzzle.difficulty}">${difficultyLabel(puzzle.difficulty)}</span>
           </div>
-          <p class="game-instructions">Reliez les nœuds numérotés dans l’ordre, passez une seule fois par chaque case, évitez les murs et terminez sur le dernier chiffre.</p>
+          <p class="game-instructions">${t('zipInstructions')}</p>
         </div>
         <div class="level-control">
-          <label class="difficulty-select-label" for="zip-difficulty">Difficulté</label>
-          <select class="difficulty-select" id="zip-difficulty" aria-label="Choisir la difficulté">
-            <option value="aleatoire" ${selectedDifficulty === 'aleatoire' ? 'selected' : ''}>Aléatoire</option>
-            <option value="facile" ${selectedDifficulty === 'facile' ? 'selected' : ''}>Facile</option>
-            <option value="moyen" ${selectedDifficulty === 'moyen' ? 'selected' : ''}>Moyen</option>
-            <option value="difficile" ${selectedDifficulty === 'difficile' ? 'selected' : ''}>Difficile</option>
+          <label class="difficulty-select-label" for="zip-difficulty">${t('difficulty')}</label>
+          <select class="difficulty-select" id="zip-difficulty" aria-label="${t('selectDifficulty')}">
+            <option value="aleatoire" ${selectedDifficulty === 'aleatoire' ? 'selected' : ''}>${t('random')}</option>
+            <option value="facile" ${selectedDifficulty === 'facile' ? 'selected' : ''}>${t('easy')}</option>
+            <option value="moyen" ${selectedDifficulty === 'moyen' ? 'selected' : ''}>${t('medium')}</option>
+            <option value="difficile" ${selectedDifficulty === 'difficile' ? 'selected' : ''}>${t('hard')}</option>
           </select>
-          <button class="secondary-button random-level-button" id="zip-new-game" type="button">Nouvelle grille <span aria-hidden="true">↻</span></button>
+          <button class="secondary-button random-level-button" id="zip-new-game" type="button">${t('newGrid')} <span aria-hidden="true">↻</span></button>
         </div>
       </section>
       <section class="play-area">
         <div class="board-wrap">
-          <div id="zip-board" class="zip-board" role="grid" aria-label="Grille Zip de ${puzzle.size} par ${puzzle.size}"></div>
+          <div id="zip-board" class="zip-board" role="grid" aria-label="${t('zipGridLabel', { size: puzzle.size })}"></div>
           <div class="game-status" id="zip-status" role="status" aria-live="polite"></div>
           <div class="game-actions">
             <div class="action-buttons">
-              <button class="secondary-button" id="zip-undo" type="button">Annuler</button>
-              <button class="secondary-button" id="zip-reset" type="button">Recommencer</button>
+              <button class="secondary-button" id="zip-undo" type="button">${t('undo')}</button>
+              <button class="secondary-button" id="zip-reset" type="button">${t('restart')}</button>
             </div>
           </div>
         </div>
         <aside class="rules-card">
           <span class="rules-icon" aria-hidden="true">↝</span>
-          <h2>Comment jouer</h2>
+          <h2>${t('howToPlay')}</h2>
           <ol>
-            <li>Commencez au nœud 1 et reliez les numéros dans l’ordre.</li>
-            <li>Avancez uniquement vers une case voisine, horizontalement ou verticalement.</li>
-            <li>Le chemin ne peut ni se croiser ni repasser sur une case.</li>
-            <li>Les traits épais sont des murs : il est interdit de les franchir.</li>
-            <li>Remplissez toutes les cases et terminez obligatoirement sur le chiffre le plus élevé.</li>
+            <li>${t('zipRuleNumbers')}</li>
+            <li>${t('zipRuleNeighbor')}</li>
+            <li>${t('zipRuleNoCross')}</li>
+            <li>${t('zipRuleWalls')}</li>
+            <li>${t('zipRuleFinish')}</li>
           </ol>
-          <p>Cliquez sur une case voisine ou faites glisser le chemin. Cliquez sur l’étape précédente pour revenir en arrière.</p>
+          <p>${t('zipHowTo')}</p>
         </aside>
       </section>
     </main>
   `;
 
+  attachLanguageSelector();
   app.querySelector('#zip-new-game').addEventListener('click', () => {
     router.navigateRandom('zip', selectedDifficulty);
   });
@@ -293,59 +378,64 @@ function renderTangoGame(route) {
     showWarnings: false,
     hintCell: null,
     hintMessage: '',
+    hintData: null,
   };
 
   app.innerHTML = `
     <main class="shell game-shell">
       <header class="topbar">
         <a class="brand" href="#/">Grid Games</a>
-        <a class="back-link" href="#/">Tous les jeux</a>
+        <div class="topbar-actions">
+          <a class="back-link" href="#/">${t('allGames')}</a>
+          ${renderLanguageSelector()}
+        </div>
       </header>
       <section class="game-heading">
         <div>
-          <p class="eyebrow">JEU 03 · ÉQUILIBRE</p>
+          <p class="eyebrow">03 · ${t('gameBalance')}</p>
           <h1>Tango</h1>
           <div class="level-meta">
-            <span class="difficulty-badge difficulty-${puzzle.difficulty}">${capitalize(puzzle.difficulty)}</span>
+            <span class="difficulty-badge difficulty-${puzzle.difficulty}">${difficultyLabel(puzzle.difficulty)}</span>
           </div>
-          <p class="game-instructions">Remplissez chaque ligne et colonne avec autant de soleils que de lunes. Pas plus de deux symboles identiques à la suite.</p>
+          <p class="game-instructions">${t('tangoInstructions')}</p>
         </div>
         <div class="level-control">
-          <label class="difficulty-select-label" for="tango-difficulty">Difficulté</label>
-          <select class="difficulty-select" id="tango-difficulty" aria-label="Choisir la difficulté">
-            <option value="aleatoire" ${selectedDifficulty === 'aleatoire' ? 'selected' : ''}>Aléatoire</option>
-            <option value="facile" ${selectedDifficulty === 'facile' ? 'selected' : ''}>Facile</option>
-            <option value="moyen" ${selectedDifficulty === 'moyen' ? 'selected' : ''}>Moyen</option>
-            <option value="difficile" ${selectedDifficulty === 'difficile' ? 'selected' : ''}>Difficile</option>
+          <label class="difficulty-select-label" for="tango-difficulty">${t('difficulty')}</label>
+          <select class="difficulty-select" id="tango-difficulty" aria-label="${t('selectDifficulty')}">
+            <option value="aleatoire" ${selectedDifficulty === 'aleatoire' ? 'selected' : ''}>${t('random')}</option>
+            <option value="facile" ${selectedDifficulty === 'facile' ? 'selected' : ''}>${t('easy')}</option>
+            <option value="moyen" ${selectedDifficulty === 'moyen' ? 'selected' : ''}>${t('medium')}</option>
+            <option value="difficile" ${selectedDifficulty === 'difficile' ? 'selected' : ''}>${t('hard')}</option>
           </select>
-          <button class="secondary-button random-level-button" id="tango-new-game" type="button">Nouveau niveau aléatoire <span aria-hidden="true">↻</span></button>
+          <button class="secondary-button random-level-button" id="tango-new-game" type="button">${t('newRandomLevel')} <span aria-hidden="true">↻</span></button>
         </div>
       </section>
       <section class="play-area">
         <div class="board-wrap">
-          <div id="tango-board" class="tango-board" style="--tango-size:${puzzle.size}" role="grid" aria-label="Grille Tango de ${puzzle.size} par ${puzzle.size}"></div>
+          <div id="tango-board" class="tango-board" style="--tango-size:${puzzle.size}" role="grid" aria-label="${t('tangoGridLabel', { size: puzzle.size })}"></div>
           <div class="game-status" id="tango-status" role="status" aria-live="polite"></div>
           <div class="game-actions">
             <div class="action-buttons">
-              <button class="secondary-button" id="tango-reset" type="button">Effacer</button>
-              <button class="secondary-button hint-button" id="tango-hint" type="button">Indice</button>
+              <button class="secondary-button" id="tango-reset" type="button">${t('erase')}</button>
+              <button class="secondary-button hint-button" id="tango-hint" type="button">${t('hint')}</button>
             </div>
           </div>
         </div>
         <aside class="rules-card">
           <span class="rules-icon" aria-hidden="true">${renderTangoSymbol('sun')}</span>
-          <h2>Comment jouer</h2>
+          <h2>${t('howToPlay')}</h2>
           <ol>
-            <li>Chaque ligne et colonne contient autant de soleils que de lunes.</li>
-            <li>Il ne peut pas y avoir trois symboles identiques consécutifs.</li>
-            <li>Les signes « = » imposent deux symboles identiques ; « × » impose deux symboles différents.</li>
+            <li>${t('tangoRuleBalance')}</li>
+            <li>${t('tangoRuleTriple')}</li>
+            <li>${t('tangoRuleRelations')}</li>
           </ol>
-          <p>Cliquez sur une case pour alterner entre soleil, lune et case vide. Les cases préremplies sont verrouillées.</p>
+          <p>${t('tangoHowTo')}</p>
         </aside>
       </section>
     </main>
   `;
 
+  attachLanguageSelector();
   app.querySelector('#tango-new-game').addEventListener('click', () => {
     router.navigateRandom('tango', selectedDifficulty);
   });
@@ -391,12 +481,12 @@ function renderZipBoard() {
         wallEdges.has(`${row},${col},down`) ? 'has-wall-down' : '',
       ].filter(Boolean).join(' ');
       const stateLabel = checkpoint
-        ? `nœud ${checkpoint}`
+        ? t('zipNode', { number: checkpoint })
         : isPath
-          ? `étape ${pathIndex + 1} du chemin`
-          : 'case vide';
+          ? t('zipStep', { number: pathIndex + 1 })
+          : t('emptyCell');
       return `<button class="zip-cell ${isPath ? 'is-path' : ''} ${checkpoint ? 'is-checkpoint' : ''} ${wallClasses}"
-        type="button" role="gridcell" aria-label="Ligne ${row + 1}, colonne ${col + 1}, ${stateLabel}"
+        type="button" role="gridcell" aria-label="${t('rowColumn', { row: row + 1, col: col + 1, state: stateLabel })}"
         data-row="${row}" data-col="${col}" style="--zip-cell-index:${row * state.puzzle.size + col}">${content}</button>`;
     }),
   ).flat().join('');
@@ -408,12 +498,17 @@ function renderZipBoard() {
     const elapsedSeconds = Math.floor((Date.now() - state.startedAt) / 1000);
     recordLevelCompletion('zip', state.puzzle.seed, elapsedSeconds);
     status.className = 'game-status success';
-    status.textContent = `Bravo ! Grille terminée en ${formatDuration(elapsedSeconds)}.`;
+    status.textContent = t('zipWin', { time: formatDuration(elapsedSeconds) });
   } else {
     status.className = `game-status ${state.message ? 'error' : ''}`;
     status.textContent =
-      state.message ||
-      `${validation.visitedCount} / ${state.puzzle.size ** 2} cases parcourues · Nœud ${getZipCheckpointProgress(state)} / ${state.puzzle.checkpoints.length}`;
+      (state.message && localizeZipReason(state.message)) ||
+      t('zipProgress', {
+        visited: validation.visitedCount,
+        total: state.puzzle.size ** 2,
+        checkpoint: getZipCheckpointProgress(state),
+        checkpoints: state.puzzle.checkpoints.length,
+      });
   }
   board.classList.toggle('is-complete', state.completed);
   app.querySelector('#zip-undo').disabled =
@@ -435,10 +530,10 @@ function renderTangoBoard() {
       const key = `${rowIndex},${colIndex}`;
       const fixed = state.fixedCells.has(key);
       const marker = value ? renderTangoSymbol(value) : '';
-      const symbolLabel = value === 'sun' ? 'soleil' : value === 'moon' ? 'lune' : 'vide';
+      const symbolLabel = value === 'sun' ? t('sun') : value === 'moon' ? t('moon') : t('blank');
       const hinted = state.hintCell?.row === rowIndex && state.hintCell?.col === colIndex;
       return `<button class="tango-cell ${value ? `is-${value}` : ''} ${fixed ? 'is-fixed' : ''} ${showWarnings && conflicts.has(key) ? 'has-conflict' : ''} ${hinted ? 'is-hinted' : ''}"
-        type="button" role="gridcell" aria-label="Ligne ${rowIndex + 1}, colonne ${colIndex + 1}, ${symbolLabel}${fixed ? ', indice fixe' : ''}"
+        type="button" role="gridcell" aria-label="${t('rowColumn', { row: rowIndex + 1, col: colIndex + 1, state: `${symbolLabel}${fixed ? `, ${t('fixedHint')}` : ''}` })}"
         aria-pressed="${Boolean(value)}" ${fixed || state.completed ? 'disabled' : ''}
         data-row="${rowIndex}" data-col="${colIndex}">${marker}</button>`;
     }),
@@ -463,7 +558,7 @@ function renderTangoBoard() {
     const elapsedSeconds = Math.floor((Date.now() - state.startedAt) / 1000);
     recordLevelCompletion('tango', state.puzzle.level, elapsedSeconds);
     status.className = 'game-status success';
-    status.textContent = `Bravo ! Niveau terminé en ${formatDuration(elapsedSeconds)}.`;
+    status.textContent = t('tangoWin', { time: formatDuration(elapsedSeconds) });
     board.classList.add('is-complete');
     board.querySelectorAll('.tango-cell').forEach((cell) => {
       cell.disabled = true;
@@ -473,13 +568,16 @@ function renderTangoBoard() {
     status.textContent = state.hintMessage;
   } else if (!validation.valid && showWarnings) {
     status.className = 'game-status error';
-    status.textContent = 'Certaines cases enfreignent les règles. Corrigez les cases en rouge.';
+    status.textContent = t('tangoConflict');
   } else if (state.completed) {
     status.className = 'game-status success';
-    status.textContent = 'Niveau terminé. Bien joué !';
+    status.textContent = t('tangoCompleted');
   } else {
     status.className = 'game-status';
-    status.textContent = `${validation.filledCount} / ${state.puzzle.size ** 2} cases remplies`;
+    status.textContent = t('tangoProgress', {
+      filled: validation.filledCount,
+      total: state.puzzle.size ** 2,
+    });
   }
   app.querySelector('#tango-reset').disabled =
     state.completed || validation.filledCount === state.fixedCells.size;
@@ -505,6 +603,7 @@ function handleTangoBoardClick(event) {
   state.showWarnings = false;
   state.hintCell = null;
   state.hintMessage = '';
+  state.hintData = null;
   renderTangoBoard();
   const currentState = state;
   state.warningTimer = window.setTimeout(() => {
@@ -525,11 +624,12 @@ function revealTangoHint() {
   const hint = findLogicalTangoHint(state.puzzle, state.grid);
   if (hint) {
     state.hintCell = { row: hint.row, col: hint.col };
-    state.hintMessage = `Indice — ligne ${hint.row + 1}, colonne ${hint.col + 1} : cette case doit contenir ${hint.value === 'sun' ? 'un soleil' : 'une lune'}. ${hint.explanation}`;
+    state.hintData = hint;
+    state.hintMessage = formatTangoHint(hint);
   } else {
     state.hintCell = null;
-    state.hintMessage =
-      'Aucune case ne peut être déduite avec certitude à partir des indices et des symboles actuellement posés.';
+    state.hintData = null;
+    state.hintMessage = t('tangoNoHint');
   }
   renderTangoBoard();
 }
@@ -542,6 +642,7 @@ function resetTangoBoard() {
   state.showWarnings = false;
   state.hintCell = null;
   state.hintMessage = '';
+  state.hintData = null;
   state.grid = state.puzzle.givens.map((row) => [...row]);
   renderTangoBoard();
 }
@@ -750,14 +851,14 @@ function renderQueensBoard() {
       const regionEdgeBottom =
         rowIndex < state.puzzle.size - 1 &&
         region !== state.puzzle.regions[rowIndex + 1][colIndex];
-      const stateLabel = hasQueen ? 'reine' : cellState === 'excluded' ? 'éliminée' : 'vide';
+      const stateLabel = hasQueen ? t('queen') : cellState === 'excluded' ? t('eliminated') : t('blank');
       const marker = hasQueen
         ? '<span class="queen-marker" aria-hidden="true">♛</span>'
         : cellState === 'excluded'
           ? '<span class="excluded-marker" aria-hidden="true">×</span>'
           : '';
       return `<button class="queen-cell ${hasConflict ? 'has-conflict' : ''} ${isHinted ? 'is-hinted' : ''} ${regionEdgeRight ? 'region-edge-right' : ''} ${regionEdgeBottom ? 'region-edge-bottom' : ''}"
-        type="button" role="gridcell" aria-label="Ligne ${rowIndex + 1}, colonne ${colIndex + 1}, ${stateLabel}"
+        type="button" role="gridcell" aria-label="${t('queensCell', { row: rowIndex + 1, col: colIndex + 1, state: stateLabel })}"
         aria-pressed="${cellState !== 'empty'}" style="--region-color:${REGION_COLORS[region % REGION_COLORS.length]}"
         data-row="${rowIndex}" data-col="${colIndex}">${marker}</button>`;
     }),
@@ -772,18 +873,18 @@ function renderQueensBoard() {
     const elapsedSeconds = Math.floor((Date.now() - state.startedAt) / 1000);
     recordLevelCompletion('queens', state.puzzle.level, elapsedSeconds);
     status.className = 'game-status success';
-    status.textContent = `Bravo ! Niveau terminé en ${formatDuration(elapsedSeconds)}.`;
+    status.textContent = t('queensWin', { time: formatDuration(elapsedSeconds) });
     board.classList.add('is-complete');
   } else if (!validation.valid) {
     status.className = 'game-status error';
-    status.textContent = 'Conflit : vérifiez les cases en rouge.';
+    status.textContent = t('queensConflict');
   } else if (state.completed) {
     status.className = 'game-status success';
-    status.textContent = 'Niveau terminé. Bien joué !';
+    status.textContent = t('tangoCompleted');
   } else {
     status.className = 'game-status';
     status.textContent = state.hintMessage ||
-      `${state.placements.length} / ${state.puzzle.size} reines placées`;
+      t('queensProgress', { placed: state.placements.length, total: state.puzzle.size });
     board.classList.remove('is-complete');
   }
 }
@@ -886,6 +987,7 @@ function applyDraggedCross(row, col, mode) {
   activeGameState.completed = false;
   activeGameState.hintMessage = '';
   activeGameState.hintCells.clear();
+  activeGameState.hintData = null;
 }
 
 function revealQueensHint() {
@@ -907,11 +1009,12 @@ function revealQueensHint() {
     const key = `${cross.row},${cross.col}`;
     state.cellStates.set(key, 'excluded');
     state.hintCells = new Set([key]);
-    state.hintMessage = `Indice — cochez la ligne ${cross.row + 1}, colonne ${cross.col + 1}. ${cross.explanation}`;
+    state.hintData = cross;
+    state.hintMessage = formatQueensHint(cross);
   } else {
     state.hintCells.clear();
-    state.hintMessage =
-      'Aucune nouvelle croix ne peut être déduite des reines et des croix actuellement visibles. Posez une reine ou poursuivez vos déductions, puis redemandez un indice.';
+    state.hintData = null;
+    state.hintMessage = t('queensNoHint');
   }
   renderQueensBoard();
 }
@@ -933,6 +1036,7 @@ function toggleQueen(row, col) {
   activeGameState.completed = false;
   activeGameState.hintMessage = '';
   activeGameState.hintCells.clear();
+  activeGameState.hintData = null;
   if (nextState === 'queen') {
     activeGameState.placements.push({ row, col });
   }
@@ -944,6 +1048,7 @@ function clearQueensBoard() {
   activeGameState.completed = false;
   activeGameState.hintMessage = '';
   activeGameState.hintCells.clear();
+  activeGameState.hintData = null;
   activeGameState.placements = [];
   activeGameState.cellStates.clear();
   renderQueensBoard();
@@ -952,20 +1057,126 @@ function clearQueensBoard() {
 function formatDuration(seconds) {
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  return `${minutes}:${String(remainingSeconds).padStart(2, '0')}`;
+  return t('timeFormat', {
+    minutes,
+    seconds: String(remainingSeconds).padStart(2, '0'),
+  });
 }
 
-function capitalize(value) {
-  return value.charAt(0).toLocaleUpperCase('fr-FR') + value.slice(1);
+function formatTangoHint(hint) {
+  return t('tangoHintPrefix', {
+    row: hint.row + 1,
+    col: hint.col + 1,
+    value: t(hint.value === 'sun' ? 'tangoHintMustSun' : 'tangoHintMustMoon'),
+    explanation: localizeTangoExplanation(hint.explanation),
+  });
+}
+
+function formatQueensHint(hint) {
+  return t('queensHintPrefix', {
+    row: hint.row + 1,
+    col: hint.col + 1,
+    explanation: localizeQueensExplanation(hint.explanation),
+  });
+}
+
+function localizeZipReason(reason) {
+  const messages = new Map([
+    ['Le chemin ne peut pas repasser sur une case déjà traversée.', 'zipReasonVisited'],
+    ['Le chemin doit commencer au nœud numéro 1.', 'zipReasonStart'],
+    ['Le chemin doit avancer d’une case voisine, sans diagonale.', 'zipReasonAdjacent'],
+    ['Un mur empêche de passer par cette liaison.', 'zipReasonWall'],
+    ['Le dernier chiffre ne peut être rejoint qu’après avoir parcouru toutes les cases.', 'zipReasonLast'],
+    ['Reliez les nœuds numérotés dans l’ordre.', 'zipReasonOrder'],
+    ['Le chemin doit se terminer sur le dernier nœud numéroté.', 'zipReasonFinish'],
+  ]);
+  return messages.has(reason) ? t(messages.get(reason)) : reason;
+}
+
+function localizeTangoExplanation(explanation) {
+  if (explanation.includes('Le signe « = »')) return t('tangoHintEqual');
+  if (explanation.includes('Le signe « × »')) return t('tangoHintDifferent');
+
+  const triple = explanation.match(
+    /^Ce symbole créerait trois (soleils|lunes) consécutifs sur la (ligne|colonne) (\d+)\.$/,
+  );
+  if (triple) {
+    return t('tangoHintTriple', {
+      symbol: t(triple[1] === 'soleils' ? 'sunPlural' : 'moonPlural'),
+      unit: t(triple[2] === 'ligne' ? 'rowName' : 'columnName', { number: triple[3] }),
+      number: triple[3],
+    });
+  }
+
+  const count = explanation.match(
+    /^La (ligne|colonne) (\d+) doit contenir (\d+) (soleils|lunes) ; avec ce symbole, il n’y aurait plus assez de cases pour les placer\.$/,
+  );
+  if (count) {
+    return t('tangoHintCount', {
+      unit: t(count[1] === 'ligne' ? 'rowName' : 'columnName', { number: count[2] }),
+      number: count[2],
+      count: count[3],
+      symbol: t(count[4] === 'soleils' ? 'sunPlural' : 'moonPlural'),
+    });
+  }
+  return explanation;
+}
+
+function localizeQueensExplanation(explanation) {
+  const direct = explanation.match(
+    /^Cochez la ligne (\d+), colonne (\d+) : cette case (.*)\.$/,
+  );
+  if (direct) {
+    return t('queensHintDirect', {
+      row: direct[1],
+      col: direct[2],
+      reason: localizeQueensConflict(direct[3]),
+    });
+  }
+
+  const forced = explanation.match(
+    /^Il ne reste qu’une seule case possible dans (la ligne|la colonne|la région colorée) (\d+) : ligne (\d+), colonne (\d+)\. Une reine doit y être placée ; cochez cette case, car elle (.*)\.$/,
+  );
+  if (forced) {
+    return t('queensHintForced', {
+      unit: t(
+        forced[1] === 'la ligne'
+          ? 'queensRowUnit'
+          : forced[1] === 'la colonne'
+            ? 'queensColumnUnit'
+            : 'queensRegionUnit',
+        { number: forced[2] },
+      ),
+      row: forced[3],
+      col: forced[4],
+      reason: localizeQueensConflict(forced[5]),
+    });
+  }
+  return explanation;
+}
+
+function localizeQueensConflict(reason) {
+  const sameRow = reason.match(/^se trouve sur la ligne (\d+) de la reine$/);
+  if (sameRow) return t('queensConflictRow', { row: sameRow[1] });
+  const sameColumn = reason.match(/^se trouve dans la colonne (\d+) de la reine$/);
+  if (sameColumn) return t('queensConflictColumn', { col: sameColumn[1] });
+  if (reason === 'se trouve dans la même région colorée que la reine') {
+    return t('queensConflictRegion');
+  }
+  if (reason === 'touche la reine') return t('queensConflictTouch');
+  return reason;
 }
 
 function render(route) {
+  currentRoute = route;
+  document.documentElement.lang = getCurrentLocale().split('-')[0];
   if (route.name === 'home') {
     renderHome();
   } else if (route.name === 'game') {
     renderGame(route);
   } else {
-    app.innerHTML = '<main class="shell"><h1>Page introuvable</h1><a href="#/">Accueil</a></main>';
+    app.innerHTML = `<main class="shell"><h1>${t('pageNotFound')}</h1><a href="#/">${t('home')}</a>${renderLanguageSelector()}</main>`;
+    attachLanguageSelector();
   }
 }
 

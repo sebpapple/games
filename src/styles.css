@@ -18,6 +18,16 @@ a { color: inherit; text-decoration: none; }
 
 .shell { width: min(100% - 40px, 1080px); margin: 0 auto; }
 .topbar { height: 76px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
+.topbar-actions { align-items: center; display: flex; gap: 18px; }
+.language-picker { position: relative; }
+.language-trigger { align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; color: inherit; cursor: pointer; display: flex; font-size: .84rem; gap: 8px; list-style: none; padding: 8px 10px; }
+.language-trigger::-webkit-details-marker { display: none; }
+.language-trigger::after { border-bottom: 1.5px solid currentColor; border-right: 1.5px solid currentColor; content: ""; height: 6px; margin: -4px 0 0 3px; transform: rotate(45deg); width: 6px; }
+.language-flag { border: 1px solid #0000001c; border-radius: 2px; display: block; flex: 0 0 auto; height: 16px; overflow: hidden; width: 24px; }
+.language-menu { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 28px #1834521c; min-width: 160px; padding: 5px; position: absolute; right: 0; top: calc(100% + 6px); z-index: 10; }
+.language-option { align-items: center; background: transparent; border: 0; border-radius: 6px; color: inherit; cursor: pointer; display: flex; font-size: .88rem; gap: 10px; padding: 9px 8px; text-align: left; width: 100%; }
+.language-option:hover, .language-option[aria-current="true"] { background: color-mix(in srgb, var(--blue) 12%, var(--surface)); }
+.visually-hidden { clip: rect(0, 0, 0, 0); clip-path: inset(50%); height: 1px; overflow: hidden; position: absolute; white-space: nowrap; width: 1px; }
 .brand { color: var(--blue); font-size: 1.2rem; font-weight: 800; letter-spacing: -.04em; }
 .offline-label, .back-link { color: var(--muted); font-size: .86rem; }
 .offline-label { display: flex; align-items: center; gap: 8px; }
@@ -122,6 +132,10 @@ h1 { font-size: clamp(2rem, 5vw, 3.5rem); letter-spacing: -.055em; line-height: 
 @media (max-width: 520px) {
   .shell { width: min(100% - 28px, 1080px); }
   .topbar { height: 64px; }
+  .topbar-actions { gap: 9px; }
+  .offline-label { font-size: 0; }
+  .offline-label span { flex-shrink: 0; }
+  .language-trigger { gap: 6px; padding: 7px; }
   .game-list { grid-template-columns: 1fr; gap: 10px; }
   .game-card { min-height: 128px; padding: 17px 19px; }
   .game-title { margin-top: 10px; }
