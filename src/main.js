@@ -1,3 +1,6 @@
+import { App } from '@capacitor/app';
+import { Capacitor, SystemBars, SystemBarsStyle } from '@capacitor/core';
+import { handleAndroidBackButton } from './android-navigation.js';
 import { createRouter } from './router.js';
 import {
   createQueensPuzzle,
@@ -1722,7 +1725,33 @@ function render(route) {
 router = createRouter(render);
 render(router.getCurrentRoute());
 
-if ('serviceWorker' in navigator && import.meta.env.PROD) {
+if (Capacitor.getPlatform() === 'android') {
+  const prefersDarkTheme = window.matchMedia('(prefers-color-scheme: dark)');
+  const setSystemBarStyle = () => {
+    SystemBars.setStyle({
+      style: prefersDarkTheme.matches ? SystemBarsStyle.Dark : SystemBarsStyle.Light,
+    }).catch((error) => {
+      console.error('Impossible de configurer les barres système.', error);
+    });
+  };
+  setSystemBarStyle();
+  prefersDarkTheme.addEventListener('change', setSystemBarStyle);
+
+  App.addListener('backButton', () => {
+    handleAndroidBackButton({
+      dialog: app.querySelector('dialog[open]'),
+      route: router.getCurrentRoute(),
+      navigateHome: () => router.navigate('/'),
+      exitApp: () => App.exitApp(),
+    });
+  });
+}
+
+if (
+  'serviceWorker' in navigator &&
+  import.meta.env.PROD &&
+  !Capacitor.isNativePlatform()
+) {
   navigator.serviceWorker.register('./sw.js').catch((error) => {
     console.error('Impossible d’enregistrer le Service Worker.', error);
   });
