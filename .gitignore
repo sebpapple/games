@@ -3,6 +3,10 @@ node_modules/
 
 # Generated build output
 dist/
+android/.gradle/
+android/local.properties
+*.jks
+*.keystore
 
 # Local environment and secrets
 .env
