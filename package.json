@@ -6,10 +6,24 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:web": "vite build",
     "preview": "vite preview",
-    "test": "node --test"
+    "test": "node --test",
+    "cap:sync": "npm run build:web && cap sync",
+    "android:sync": "npm run cap:sync",
+    "android:open": "cap open android",
+    "android:run": "npm run android:sync && cap run android",
+    "android:debug": "npm run android:sync && node scripts/build-android.mjs",
+    "android:release": "npm run android:sync && node scripts/build-android.mjs release"
   },
   "devDependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/cli": "8.4.3",
     "vite": "^6.0.0"
+  },
+  "dependencies": {
+    "@capacitor/app": "8.1.2",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/splash-screen": "8.0.2"
   }
 }

@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Grid Games</string>
+    <string name="title_activity_main">Grid Games</string>
+    <string name="package_name">com.sebpapple.gridgames</string>
+    <string name="custom_url_scheme">com.sebpapple.gridgames</string>
+</resources>
