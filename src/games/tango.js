@@ -1,10 +1,11 @@
 const BOARD_SIZE = 6;
+const HARD_CANDIDATE_COUNT = 12;
 const MAX_SOLUTIONS = 2;
 
 const RELATION_COUNTS = {
-  facile: 8,
-  moyen: 12,
-  difficile: 16,
+  facile: 2,
+  moyen: 3,
+  difficile: 4,
 };
 
 const TARGET_GIVEN_COUNTS = {
@@ -196,7 +197,7 @@ function countSolutions(puzzle, limit = MAX_SOLUTIONS) {
   return solutions;
 }
 
-function makeGivens(solution, random, difficulty) {
+function makeGivens(solution, relations, random, difficulty) {
   const cells = shuffle(
     Array.from({ length: solution.length ** 2 }, (_, index) => ({
       row: Math.floor(index / solution.length),
@@ -207,11 +208,13 @@ function makeGivens(solution, random, difficulty) {
   const givens = Array.from({ length: solution.length }, () =>
     Array(solution.length).fill(null),
   );
-  const puzzle = { size: solution.length, givens, relations: [] };
+  const puzzle = { size: solution.length, givens, relations };
   for (const { row, col } of cells) {
-    if (givens.flat().filter(Boolean).length >= TARGET_GIVEN_COUNTS[difficulty]) break;
     givens[row][col] = solution[row][col];
-    if (countSolutions(puzzle) === 1) break;
+    if (
+      givens.flat().filter(Boolean).length >= TARGET_GIVEN_COUNTS[difficulty] &&
+      countSolutions(puzzle) === 1
+    ) break;
   }
   return givens;
 }
@@ -227,32 +230,46 @@ export function createTangoPuzzle(seed, requestedDifficulty = 'aleatoire') {
     throw new RangeError('Difficulté Tango invalide.');
   }
 
-  const random = createRandom(seed);
   const difficulties = Object.keys(TARGET_GIVEN_COUNTS);
+  const difficultyRandom = createRandom(seed);
   const difficulty =
     requestedDifficulty === 'aleatoire'
-      ? difficulties[Math.floor(random() * difficulties.length)]
+      ? difficulties[Math.floor(difficultyRandom() * difficulties.length)]
       : requestedDifficulty;
-  const solution = generateSolution(BOARD_SIZE, random);
-  const relations = getAllRelations(solution, random)
-    .slice(0, RELATION_COUNTS[difficulty]);
-  const givens = makeGivens(solution, random, difficulty);
-  const puzzle = {
-    game: 'tango',
-    seed,
-    level: seed,
-    size: BOARD_SIZE,
-    difficulty,
-    givens,
-    relations,
-    solution,
-  };
+  const size = BOARD_SIZE;
+  const candidateCount =
+    difficulty === 'difficile' ? HARD_CANDIDATE_COUNT : 1;
+  let bestPuzzle = null;
+  let fewestGivens = Number.POSITIVE_INFINITY;
 
-  const solutionCount = countSolutions(puzzle);
-  if (solutionCount !== 1) {
-    throw new Error(`Impossible de générer une grille Tango à solution unique (${solutionCount}; ${JSON.stringify(validateTango({...puzzle, relations: []}, solution))}).`);
+  for (let attempt = 0; attempt < candidateCount; attempt += 1) {
+    const attemptSeed = (seed + Math.imul(attempt, 0x9e3779b9)) >>> 0;
+    const random = createRandom(attemptSeed);
+    const solution = generateSolution(size, random);
+    const relations = getAllRelations(solution, random)
+      .slice(0, RELATION_COUNTS[difficulty]);
+    const givens = makeGivens(solution, relations, random, difficulty);
+    const puzzle = {
+      game: 'tango',
+      seed,
+      level: seed,
+      size,
+      difficulty,
+      givens,
+      relations,
+      solution,
+    };
+    const givenCount = givens.flat().filter(Boolean).length;
+    if (givenCount < fewestGivens) {
+      bestPuzzle = puzzle;
+      fewestGivens = givenCount;
+    }
   }
-  return puzzle;
+
+  if (!bestPuzzle || countSolutions(bestPuzzle) !== 1) {
+    throw new Error('Impossible de générer une grille Tango à solution unique.');
+  }
+  return bestPuzzle;
 }
 
 export function validateTango(puzzle, grid) {
@@ -339,4 +356,102 @@ export function validateTango(puzzle, grid) {
 
 export function countTangoSolutions(puzzle, limit = MAX_SOLUTIONS) {
   return countSolutions(puzzle, limit);
+}
+
+export function findLogicalTangoHint(puzzle, grid) {
+  if (
+    !puzzle ||
+    puzzle.game !== 'tango' ||
+    !Number.isInteger(puzzle.size) ||
+    !Array.isArray(puzzle.givens) ||
+    !Array.isArray(puzzle.relations) ||
+    !Array.isArray(grid) ||
+    grid.length !== puzzle.size ||
+    grid.some((row) => !Array.isArray(row) || row.length !== puzzle.size)
+  ) {
+    throw new TypeError('Grille Tango ou placements invalides.');
+  }
+
+  for (let row = 0; row < puzzle.size; row += 1) {
+    for (let col = 0; col < puzzle.size; col += 1) {
+      if (grid[row][col] !== null || puzzle.givens[row][col] !== null) continue;
+
+      const contradictions = ['sun', 'moon'].map((value) => ({
+        value,
+        reason: getVisibleRuleContradiction(puzzle, grid, row, col, value),
+      }));
+      const impossible = contradictions.find(({ reason }) => reason);
+      const possible = contradictions.find(({ reason }) => !reason);
+      if (impossible && possible) {
+        return {
+          row,
+          col,
+          value: possible.value,
+          impossible: impossible.value,
+          explanation: impossible.reason,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function getVisibleRuleContradiction(puzzle, grid, row, col, value) {
+  const size = puzzle.size;
+  const otherValue = value === 'sun' ? 'moon' : 'sun';
+  const candidateAt = (candidateRow, candidateCol) =>
+    candidateRow === row && candidateCol === col
+      ? value
+      : grid[candidateRow][candidateCol];
+
+  for (const [cells, unitName] of [
+    [Array.from({ length: size }, (_, index) => [row, index]), `ligne ${row + 1}`],
+    [Array.from({ length: size }, (_, index) => [index, col]), `colonne ${col + 1}`],
+  ]) {
+    const values = cells.map(([cellRow, cellCol]) =>
+      candidateAt(cellRow, cellCol),
+    );
+    const otherCount = values.filter((cell) => cell === otherValue).length;
+    const emptyCount = values.filter((cell) => cell === null).length;
+    if (otherCount + emptyCount < size / 2) {
+      return `La ${unitName} doit contenir ${size / 2} ${otherValue === 'sun' ? 'soleils' : 'lunes'} ; avec ce symbole, il n’y aurait plus assez de cases pour les placer.`;
+    }
+  }
+
+  for (let startCol = Math.max(0, col - 2); startCol <= Math.min(col, size - 3); startCol += 1) {
+    const triple = [0, 1, 2].map((offset) =>
+      candidateAt(row, startCol + offset),
+    );
+    if (triple.every((cell) => cell === value)) {
+      return `Ce symbole créerait trois ${value === 'sun' ? 'soleils' : 'lunes'} consécutifs sur la ligne ${row + 1}.`;
+    }
+  }
+  for (let startRow = Math.max(0, row - 2); startRow <= Math.min(row, size - 3); startRow += 1) {
+    const triple = [0, 1, 2].map((offset) =>
+      candidateAt(startRow + offset, col),
+    );
+    if (triple.every((cell) => cell === value)) {
+      return `Ce symbole créerait trois ${value === 'sun' ? 'soleils' : 'lunes'} consécutifs sur la colonne ${col + 1}.`;
+    }
+  }
+
+  for (const relation of puzzle.relations) {
+    const nextRow = relation.row + (relation.direction === 'down' ? 1 : 0);
+    const nextCol = relation.col + (relation.direction === 'right' ? 1 : 0);
+    const touchesCandidate =
+      (relation.row === row && relation.col === col) ||
+      (nextRow === row && nextCol === col);
+    if (!touchesCandidate) continue;
+    const first = candidateAt(relation.row, relation.col);
+    const second = candidateAt(nextRow, nextCol);
+    if (first === null || second === null) continue;
+    const matches = first === second;
+    if ((relation.type === 'equal') !== matches) {
+      return relation.type === 'equal'
+        ? 'Le signe « = » impose le même symbole dans les deux cases voisines.'
+        : 'Le signe « × » impose des symboles différents dans les deux cases voisines.';
+    }
+  }
+
+  return null;
 }

@@ -92,8 +92,8 @@ function generateHamiltonianPath(size, random) {
 }
 
 const CHECKPOINT_COUNTS = {
-  facile: 20,
-  moyen: 15,
+  facile: 10,
+  moyen: 9,
   difficile: 7,
 };
 

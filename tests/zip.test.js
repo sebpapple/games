@@ -11,6 +11,7 @@ test('génère un parcours ZIP déterministe qui remplit toute la grille', () =>
     assert.equal(puzzle.size, 6);
     assert.ok(puzzle.pathHue >= 0 && puzzle.pathHue < 360);
     assert.ok(['facile', 'moyen', 'difficile'].includes(puzzle.difficulty));
+    assert.ok(puzzle.checkpoints.length <= 10);
     assert.equal(puzzle.solution.length, puzzle.size ** 2);
     assert.equal(
       new Set(puzzle.solution.map(({ row, col }) => `${row},${col}`)).size,
@@ -53,8 +54,8 @@ test('génère un parcours ZIP déterministe qui remplit toute la grille', () =>
 
 test('génère chaque difficulté demandée avec le nœud le plus élevé à la fin', () => {
   const expectedCheckpointCounts = {
-    facile: 20,
-    moyen: 15,
+    facile: 10,
+    moyen: 9,
     difficile: 7,
   };
 
