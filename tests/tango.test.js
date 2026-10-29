@@ -11,12 +11,21 @@ test('génère un puzzle Tango déterministe avec une solution unique', () => {
   for (const seed of [1, 2, 42, 995819834, 0xffffffff]) {
     const puzzle = createTangoPuzzle(seed);
     assert.deepEqual(puzzle, createTangoPuzzle(seed));
-    assert.equal(puzzle.size, 6);
+    assert.equal(puzzle.size, {
+      facile: 6,
+      moyen: 8,
+      difficile: 10,
+    }[puzzle.difficulty]);
     assert.equal(countTangoSolutions(puzzle), 1);
     assert.equal(validateTango(puzzle, puzzle.solution).won, true);
     assert.equal(puzzle.solution.length, puzzle.size);
     assert.ok(puzzle.solution.every((row) => row.length === puzzle.size));
-    assert.ok(puzzle.givens.flat().filter(Boolean).length >= 7);
+    const maxGivenCounts = { facile: 15, moyen: 24, difficile: 35 };
+    const givenCount = puzzle.givens.flat().filter(Boolean).length;
+    assert.ok(
+      givenCount <= maxGivenCounts[puzzle.difficulty],
+      `${puzzle.difficulty} doit commencer avec au plus ${maxGivenCounts[puzzle.difficulty]} cases remplies.`,
+    );
   }
 });
 
@@ -27,20 +36,39 @@ test('génère les difficultés demandées avec les relations correspondantes', 
     assert.equal(puzzle.relations.length, {
       facile: 2,
       moyen: 3,
-      difficile: 4,
+      difficile: 0,
     }[difficulty]);
-    assert.equal(puzzle.size, 6);
+    assert.equal(puzzle.size, {
+      facile: 6,
+      moyen: 8,
+      difficile: 10,
+    }[difficulty]);
     assert.equal(countTangoSolutions(puzzle), 1);
     assert.equal(validateTango(puzzle, puzzle.solution).won, true);
     if (difficulty === 'difficile') {
       assert.ok(
-        puzzle.givens.flat().filter(Boolean).length <= 18,
-        'Le niveau difficile doit afficher peu de cases préremplies.',
+        puzzle.givens.flat().filter(Boolean).length <= 35,
+        'Le niveau difficile doit commencer avec au plus 35 cases remplies.',
       );
     }
   }
   assert.throws(() => createTangoPuzzle(0), RangeError);
   assert.throws(() => createTangoPuzzle(1, 'expert'), RangeError);
+});
+
+test('chaque difficulté respecte son maximum de cases préremplies et garde une solution unique', () => {
+  const maxGivenCounts = { facile: 15, moyen: 24, difficile: 35 };
+  for (const difficulty of Object.keys(maxGivenCounts)) {
+    for (const seed of [1, 2, 17, 42, 128, 500, 995819834, 0xffffffff]) {
+      const puzzle = createTangoPuzzle(seed, difficulty);
+      const givenCount = puzzle.givens.flat().filter(Boolean).length;
+      assert.ok(
+        givenCount <= maxGivenCounts[difficulty],
+        `${difficulty}, graine ${seed} : ${givenCount} cases préremplies.`,
+      );
+      assert.equal(countTangoSolutions(puzzle), 1);
+    }
+  }
 });
 
 test('déduit un indice Tango uniquement depuis les indices et placements visibles', () => {

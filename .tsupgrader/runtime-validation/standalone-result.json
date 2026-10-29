@@ -1,0 +1,102 @@
+{
+  "planHash": "06c722f10c9d88d2550650cb0c0a63d541e356c5f61be0598a57aba580c46622",
+  "phase": "standalone",
+  "recordedAtUtc": "2026-10-29T10:15:57.9978983Z",
+  "retryCount": 0,
+  "resetBaseline": false,
+  "complete": true,
+  "result": {
+    "setupSucceeded": true,
+    "setupDurationMs": 0,
+    "setupFailureOutput": null,
+    "assertions": [
+      {
+        "name": "production-build",
+        "kind": "process",
+        "verificationMethod": "exit-code",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E grid-games-pwa@1.0.0 build\r\n\u003E vite build\r\n\r\n\u001B[36mvite v6.4.5 \u001B[32mbuilding for production...\u001B[36m\u001B[39m\r\ntransforming...\r\n\u001B[32m\u2713\u001B[39m 12 modules transformed.\r\nrendering chunks...\r\ncomputing gzip size...\r\n\u001B[2mdist/\u001B[22m\u001B[32mindex.html                 \u001B[39m\u001B[1m\u001B[2m  0.83 kB\u001B[22m\u001B[1m\u001B[22m\u001B[2m \u2502 gzip:  0.46 kB\u001B[22m\r\n\u001B[2mdist/\u001B[22m\u001B[35massets/index-CIkd-718.css  \u001B[39m\u001B[1m\u001B[2m 26.08 kB\u001B[22m\u001B[1m\u001B[22m\u001B[2m \u2502 gzip:  6.38 kB\u001B[22m\r\n\u001B[2mdist/\u001B[22m\u001B[36massets/index-Wdk_WSTR.js   \u001B[39m\u001B[1m\u001B[2m121.31 kB\u001B[22m\u001B[1m\u001B[22m\u001B[2m \u2502 gzip: 36.39 kB\u001B[22m\r\n\u001B[32m\u2713 built in 201ms\u001B[39m\r\n",
+        "durationMs": 898
+      },
+      {
+        "name": "tests-pass",
+        "kind": "process",
+        "verificationMethod": "test-results",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": 0,
+        "outputSample": "\r\n\u003E grid-games-pwa@1.0.0 test\r\n\u003E node --test\r\n\r\n\u2714 provides all requested locales with flag labels (0.9529ms)\r\n\u2714 translates game copy and interpolates values for each locale (0.5501ms)\r\n\u2714 persists the selected language and rejects unsupported values (0.3167ms)\r\n\u2714 g\u00E9n\u00E8re des grilles Patches d\u00E9terministes et uniques \u00E0 chaque difficult\u00E9 (126.8433ms)\r\n\u2714 g\u00E9n\u00E8re des niveaux al\u00E9atoires valides pour une s\u00E9rie de graines (3147.8437ms)\r\n\u2714 refuse les graines et niveaux de difficult\u00E9 invalides (0.7024ms)\r\n\u2714 autorise seulement les pi\u00E8ces qui respectent les indices et les placements existants (0.4386ms)\r\n\u2714 les indices Patches reposent uniquement sur les indices visibles (0.2486ms)\r\n\u2714 signale les placements incomplets et les conflits sans d\u00E9clarer la victoire (0.2488ms)\r\n\u2714 g\u00E9n\u00E8re une grille reproductible \u00E0 solution unique pour chaque graine (5216.5055ms)\r\n\u2714 refuse les graines hors plage et les placements hors grille (0.455ms)\r\n\u2714 signale les reines en conflit sans d\u00E9clarer la grille gagn\u00E9e (0.1464ms)\r\n\u2714 les contraintes impossibles ne laissent aucune solution (250.4596ms)\r\n\u2714 g\u00E9n\u00E8re un d\u00E9fi correspondant \u00E0 la difficult\u00E9 demand\u00E9e (892.6531ms)\r\n\u2714 attribue une couleur distincte \u00E0 chaque r\u00E9gion jusqu\u2019\u00E0 la grille 10x10 (0.2922ms)\r\n\u2714 limite \u00E0 une seule r\u00E9gion d\u2019une case dans les grilles difficiles (1323.7018ms)\r\n\u2714 chaque r\u00E9gion Queens est contigu\u00EB horizontalement ou verticalement (1027.4699ms)\r\n\u2714 d\u00E9duit les croix uniquement \u00E0 partir des contraintes visibles de la grille (0.9186ms)\r\n\u2714 d\u00E9duit une croix d\u2019une reine d\u00E9j\u00E0 pos\u00E9e et explique la r\u00E8gle visible (0.2852ms)\r\n\u2714 d\u00E9duit une croix quand les marques ne laissent qu\u2019une position de reine (0.2189ms)\r\n\u2714 ne d\u00E9duit pas de croix \u00E0 partir de la solution cach\u00E9e (3.3923ms)\r\n\u2714 g\u00E9n\u00E8re une graine al\u00E9atoire sans r\u00E9p\u00E9ter la graine courante (0.9287ms)\r\n\u2714 les graines al\u00E9atoires restent dans la plage 32 bits non sign\u00E9e (0.3123ms)\r\n\u2714 g\u00E9n\u00E8re un puzzle Tango d\u00E9terministe avec une solution unique (86.2791ms)\r\n\u2714 g\u00E9n\u00E8re les difficult\u00E9s demand\u00E9es avec les relations correspondantes (18.0101ms)\r\n\u2714 chaque difficult\u00E9 respecte son maximum de cases pr\u00E9remplies et garde une solution unique (120.6444ms)\r\n\u2714 d\u00E9duit un indice Tango uniquement depuis les indices et placements visibles (0.9315ms)\r\n\u2714 ne produit pas de coup forc\u00E9 si les placements visibles contredisent le puzzle (0.3355ms)\r\n\u2714 signale les triples, les d\u00E9s\u00E9quilibres et les relations viol\u00E9es (0.2538ms)\r\n\u2714 accepte les placements partiels valides et refuse les symboles invalides (10.2947ms)\r\n\u2714 g\u00E9n\u00E8re un parcours ZIP d\u00E9terministe qui remplit toute la grille (9.4554ms)\r\n\u2714 g\u00E9n\u00E8re chaque difficult\u00E9 demand\u00E9e avec le n\u0153ud le plus \u00E9lev\u00E9 \u00E0 la fin (0.7993ms)\r\n\u2714 g\u00E9n\u00E8re et respecte les murs ZIP sans bloquer la solution (0.261ms)\r\n\u2714 chaque graine g\u00E9n\u00E9r\u00E9e poss\u00E8de un parcours gagnant pour chaque difficult\u00E9 (457.1611ms)\r\n\u2714 la graine 995819834 reste finissable (0.4174ms)\r\n\u2714 refuse d\u2019atteindre le dernier n\u0153ud avant d\u2019avoir rempli la grille (0.2753ms)\r\n\u2714 rejette une \u00E9tape diagonale et un passage sur un futur n\u0153ud (0.279ms)\r\n\u2714 rejette un chemin qui repasse sur une case d\u00E9j\u00E0 visit\u00E9e (0.2168ms)\r\n\u2714 refuse de continuer apr\u00E8s avoir atteint le dernier num\u00E9ro (0.1723ms)\r\n\u2714 refuse les graines et cases en dehors de la grille (0.6567ms)\r\n\u2139 tests 40\r\n\u2139 suites 0\r\n\u2139 pass 40\r\n\u2139 fail 0\r\n\u2139 cancelled 0\r\n\u2139 skipped 0\r\n\u2139 todo 0\r\n\u2139 duration_ms 9395.6655\r\n",
+        "durationMs": 9779,
+        "testResults": {
+          "testFramework": "unknown",
+          "runnerDetectedFrom": "none",
+          "testsTotal": 0,
+          "testsPassed": 0,
+          "testsFailed": 0,
+          "testsSkipped": 0,
+          "parseFailed": true
+        }
+      },
+      {
+        "name": "dev-server-serves-home",
+        "kind": "http-probe",
+        "verificationMethod": "http-status",
+        "passed": true,
+        "timedOut": false,
+        "skipped": false,
+        "skippedReason": null,
+        "exitCode": null,
+        "outputSample": "HTTP 200\n\u003C!doctype html\u003E\r\n\u003Chtml lang=\u0022fr\u0022\u003E\r\n  \u003Chead\u003E\n    \u003Cscript type=\u0022module\u0022 src=\u0022/@vite/client\u0022\u003E\u003C/script\u003E\n\r\n    \u003Cmeta charset=\u0022UTF-8\u0022 /\u003E\r\n    \u003Cmeta name=\u0022viewport\u0022 content=\u0022width=device-width, initial-scale=1.0\u0022 /\u003E\r\n    \u003Cmeta name=\u0022theme-color\u0022 content=\u0022#f5f7fa\u0022 /\u003E\r\n    \u003Cmeta\r\n      name=\u0022description\u0022\r\n      content=\u0022Quatre jeux de logique sur grille, jouables hors ligne.\u0022\r\n    /\u003E\r\n    \u003Clink rel=\u0022manifest\u0022 href=\u0022./manifest.json\u0022 /\u003E\r\n    \u003Clink rel=\u0022icon\u0022 href=\u0022./icons/icon.svg\u0022 type=\u0022image/svg\u002Bxml\u0022 /\u003E\r\n    \u003Clink rel=\u0022stylesheet\u0022 href=\u0022./src/styles.css\u0022 /\u003E\r\n    \u003Cscript src=\u0022https://cdn.tailwindcss.com\u0022 defer\u003E\u003C/script\u003E\r\n    \u003Ctitle\u003EGrid Games\u003C/title\u003E\r\n  \u003C/head\u003E\r\n  \u003Cbody\u003E\r\n    \u003Cdiv id=\u0022app\u0022\u003E\u003C/div\u003E\r\n    \u003Cnoscript\u003ECette application n\u00E9cessite JavaScript.\u003C/noscript\u003E\r\n    \u003Cscript type=\u0022module\u0022 src=\u0022./src/main.js\u0022\u003E\u003C/script\u003E\r\n  \u003C/body\u003E\r\n\u003C/html\u003E\r\n\n--- server output ---\n\r\n\u003E grid-games-pwa@1.0.0 dev\r\n\u003E vite --host 127.0.0.1 --port 5174\r\n\r\n\r\n  \u001B[32m\u001B[1mVITE\u001B[22m v6.4.5\u001B[39m  \u001B[2mready in \u001B[0m\u001B[1m250\u001B[22m\u001B[2m\u001B[0m ms\u001B[22m\r\n\r\n  \u001B[32m\u279C\u001B[39m  \u001B[1mLocal\u001B[22m:   \u001B[36mhttp://127.0.0.1:\u001B[1m5174\u001B[22m/\u001B[39m\r\n",
+        "durationMs": 1523
+      }
+    ],
+    "executions": [
+      {
+        "source": "production-build",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "build"
+        ],
+        "cwd": "C:\\Users\\sebas\\Documents\\code\\Jeux linkedin",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "tests-pass",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "test"
+        ],
+        "cwd": "C:\\Users\\sebas\\Documents\\code\\Jeux linkedin",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      },
+      {
+        "source": "dev-server-serves-home",
+        "resolvedExecutable": "C:\\Program Files\\nodejs\\npm.CMD",
+        "args": [
+          "run",
+          "dev",
+          "--",
+          "--host",
+          "127.0.0.1",
+          "--port",
+          "5174"
+        ],
+        "cwd": "C:\\Users\\sebas\\Documents\\code\\Jeux linkedin",
+        "env": {},
+        "prependPath": [],
+        "platform": "win32"
+      }
+    ]
+  }
+}

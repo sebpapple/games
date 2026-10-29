@@ -39,6 +39,8 @@ test('translates game copy and interpolates values for each locale', () => {
     assert.ok(translate('chooseDifficultyTitle').length > 0);
     assert.ok(translate('chooseDifficultyDescription').length > 0);
     assert.ok(translate('cancel').length > 0);
+    assert.ok(translate('queensHintPlaceQueen', { row: 1, col: 2 }).includes('1'));
+    assert.ok(translate('queensInconsistentMarks').length > 0);
     assert.ok(translate('startGame').length > 0);
     assert.ok(translate('victoryHome').length > 0);
     assert.notEqual(translate('patchesDescription'), 'patchesDescription');

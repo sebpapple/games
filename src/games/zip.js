@@ -1,5 +1,11 @@
 const BOARD_SIZE = 6;
 const MAX_GENERATION_NODES = 500_000;
+const PATH_COLOR_PAIRS = [
+  ['#2fbf83', '#4b80ed'],
+  ['#e95454', '#f39842'],
+  ['#f17b38', '#f3cb4d'],
+  ['#418de8', '#9565dc'],
+];
 
 function createRandom(seed) {
   let state = seed >>> 0;
@@ -197,12 +203,14 @@ export function createZipPuzzle(seed, requestedDifficulty = 'aleatoire') {
       ? difficulties[Math.floor(random() * difficulties.length)]
       : requestedDifficulty;
   const colorRandom = createRandom((seed ^ 0x9e3779b9) >>> 0);
+  const pathColors =
+    PATH_COLOR_PAIRS[Math.floor(colorRandom() * PATH_COLOR_PAIRS.length)];
   const createPuzzle = (path) => ({
     game: 'zip',
     seed,
     size: BOARD_SIZE,
     difficulty,
-    pathHue: Math.floor(colorRandom() * 360),
+    pathColors,
     solution: path,
     checkpoints: generateCheckpoints(path, random, difficulty),
     walls: generateWalls(path, random, BOARD_SIZE, difficulty),

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'grid-games-v33';
+const CACHE_NAME = 'grid-games-v41';
 const APP_SHELL = [
   './',
   './index.html',

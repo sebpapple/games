@@ -1,18 +1,22 @@
-const BOARD_SIZE = 6;
-const HARD_CANDIDATE_COUNT = 12;
+const BOARD_SIZES = {
+  facile: 6,
+  moyen: 8,
+  difficile: 10,
+};
 const MAX_SOLUTIONS = 2;
+const MAX_GIVEN_COUNTS = {
+  facile: 15,
+  moyen: 24,
+  difficile: 35,
+};
 
 const RELATION_COUNTS = {
   facile: 2,
   moyen: 3,
-  difficile: 4,
+  difficile: 0,
 };
 
-const TARGET_GIVEN_COUNTS = {
-  facile: 18,
-  moyen: 12,
-  difficile: 7,
-};
+const ROW_PATTERNS = new Map();
 
 function createRandom(seed) {
   let state = seed >>> 0;
@@ -45,6 +49,8 @@ function hasTriple(mask, row, size) {
 }
 
 function getRowPatterns(size) {
+  if (ROW_PATTERNS.has(size)) return ROW_PATTERNS.get(size);
+
   const patterns = [];
   for (let mask = 0; mask < 2 ** size; mask += 1) {
     let suns = 0;
@@ -53,6 +59,7 @@ function getRowPatterns(size) {
     if (Array.from({ length: size }, (_, col) => col).some((col) => hasTriple(mask, col, size))) continue;
     patterns.push(mask);
   }
+  ROW_PATTERNS.set(size, patterns);
   return patterns;
 }
 
@@ -83,6 +90,18 @@ function isPartialGridValid(grid, row, col) {
   return true;
 }
 
+function canCompleteColumns(grid, row) {
+  const size = grid.length;
+  const remainingRows = size - row - 1;
+  return Array.from({ length: size }, (_, col) => {
+    const suns = grid.reduce(
+      (count, cells) => count + (cells[col] === 'sun' ? 1 : 0),
+      0,
+    );
+    return suns <= size / 2 && suns + remainingRows >= size / 2;
+  }).every(Boolean);
+}
+
 function generateSolution(size, random) {
   const patterns = shuffle(getRowPatterns(size), random);
   const grid = Array.from({ length: size }, () => Array(size).fill(null));
@@ -106,6 +125,10 @@ function generateSolution(size, random) {
       })) continue;
 
       grid[row] = candidate;
+      if (!canCompleteColumns(grid, row)) {
+        grid[row] = Array(size).fill(null);
+        continue;
+      }
       rowMasks.push(mask);
       if (placeRow(row + 1)) return true;
       rowMasks.pop();
@@ -145,50 +168,73 @@ function getAllRelations(grid, random) {
   return shuffle(relations, random);
 }
 
-function relationsMatch(grid, relations, row, col) {
-  return relations.every((relation) => {
-    const otherRow = relation.row + (relation.direction === 'down' ? 1 : 0);
-    const otherCol = relation.col + (relation.direction === 'right' ? 1 : 0);
-    const first = grid[relation.row][relation.col];
-    const second = grid[otherRow][otherCol];
-    if (first == null || second == null) return true;
-    const matches = first === second;
-    return relation.type === 'equal' ? matches : !matches;
-  });
+function relationsMatchRow(mask, previousMask, relations, row) {
+  for (const relation of relations) {
+    const nextRow = relation.row + (relation.direction === 'down' ? 1 : 0);
+    if (nextRow !== row) continue;
+
+    const nextCol = relation.col + (relation.direction === 'right' ? 1 : 0);
+    const firstMask = relation.row === row ? mask : previousMask;
+    const secondMask = nextRow === row ? mask : previousMask;
+    const first = (firstMask >> relation.col) & 1;
+    const second = (secondMask >> nextCol) & 1;
+    if ((relation.type === 'equal') !== (first === second)) return false;
+  }
+  return true;
 }
 
 function countSolutions(puzzle, limit = MAX_SOLUTIONS) {
   const { size, givens, relations } = puzzle;
   const patterns = getRowPatterns(size);
-  const grid = Array.from({ length: size }, () => Array(size).fill(null));
+  const fullMask = (1 << size) - 1;
+  const candidateRows = givens.map((row) => {
+    let knownMask = 0;
+    let sunMask = 0;
+    row.forEach((value, col) => {
+      if (value === null) return;
+      knownMask |= 1 << col;
+      if (value === 'sun') sunMask |= 1 << col;
+    });
+    return patterns.filter((mask) => (mask & knownMask) === sunMask);
+  });
+  const sunCounts = Array(size).fill(0);
   let solutions = 0;
 
-  function placeRow(row) {
+  function placeRow(row, previousMask = 0, twoRowsBackMask = 0) {
     if (row === size) {
-      const balancedColumns = Array.from({ length: size }, (_, col) =>
-        grid.filter((cells) => cells[col] === 'sun').length === size / 2,
-      ).every(Boolean);
-      if (balancedColumns && relationsMatch(grid, relations)) solutions += 1;
+      if (sunCounts.every((count) => count === size / 2)) solutions += 1;
       return solutions >= limit;
     }
-    for (const mask of patterns) {
-      const candidate = Array.from({ length: size }, (_, col) =>
-        (mask >> col) & 1 ? 'sun' : 'moon',
-      );
-      if (candidate.some((value, col) => {
-        const given = givens[row][col];
-        if (given && given !== value) return true;
-        grid[row][col] = value;
-        const valid = isPartialGridValid(grid, row, col);
-        grid[row][col] = null;
-        return !valid;
-      })) continue;
-
-      grid[row] = candidate;
-      if (relationsMatch(grid, relations, row)) {
-        if (placeRow(row + 1)) return true;
+    const remainingRows = size - row - 1;
+    for (const mask of candidateRows[row]) {
+      if (
+        row >= 2 &&
+        (((mask & previousMask & twoRowsBackMask) !== 0) ||
+          (((~mask & fullMask) & (~previousMask & fullMask) & (~twoRowsBackMask & fullMask)) !== 0))
+      ) {
+        continue;
       }
-      grid[row] = Array(size).fill(null);
+
+      let valid = true;
+      for (let col = 0; col < size; col += 1) {
+        if ((mask >> col) & 1) sunCounts[col] += 1;
+        if (
+          sunCounts[col] > size / 2 ||
+          sunCounts[col] + remainingRows < size / 2
+        ) {
+          valid = false;
+        }
+      }
+
+      if (valid) {
+        if (relationsMatchRow(mask, previousMask, relations, row)) {
+          if (placeRow(row + 1, mask, previousMask)) return true;
+        }
+      }
+
+      for (let col = 0; col < size; col += 1) {
+        if ((mask >> col) & 1) sunCounts[col] -= 1;
+      }
     }
     return false;
   }
@@ -198,6 +244,8 @@ function countSolutions(puzzle, limit = MAX_SOLUTIONS) {
 }
 
 function makeGivens(solution, relations, random, difficulty) {
+  const givens = solution.map((row) => [...row]);
+  const puzzle = { size: solution.length, givens, relations };
   const cells = shuffle(
     Array.from({ length: solution.length ** 2 }, (_, index) => ({
       row: Math.floor(index / solution.length),
@@ -205,16 +253,13 @@ function makeGivens(solution, relations, random, difficulty) {
     })),
     random,
   );
-  const givens = Array.from({ length: solution.length }, () =>
-    Array(solution.length).fill(null),
-  );
-  const puzzle = { size: solution.length, givens, relations };
+
   for (const { row, col } of cells) {
-    givens[row][col] = solution[row][col];
-    if (
-      givens.flat().filter(Boolean).length >= TARGET_GIVEN_COUNTS[difficulty] &&
-      countSolutions(puzzle) === 1
-    ) break;
+    if (givens.flat().filter(Boolean).length <= MAX_GIVEN_COUNTS[difficulty]) break;
+    givens[row][col] = null;
+    if (countSolutions(puzzle) !== 1) {
+      givens[row][col] = solution[row][col];
+    }
   }
   return givens;
 }
@@ -225,20 +270,19 @@ export function createTangoPuzzle(seed, requestedDifficulty = 'aleatoire') {
   }
   if (
     requestedDifficulty !== 'aleatoire' &&
-    !Object.hasOwn(TARGET_GIVEN_COUNTS, requestedDifficulty)
+    !Object.hasOwn(BOARD_SIZES, requestedDifficulty)
   ) {
     throw new RangeError('Difficulté Tango invalide.');
   }
 
-  const difficulties = Object.keys(TARGET_GIVEN_COUNTS);
+  const difficulties = Object.keys(BOARD_SIZES);
   const difficultyRandom = createRandom(seed);
   const difficulty =
     requestedDifficulty === 'aleatoire'
       ? difficulties[Math.floor(difficultyRandom() * difficulties.length)]
       : requestedDifficulty;
-  const size = BOARD_SIZE;
-  const candidateCount =
-    difficulty === 'difficile' ? HARD_CANDIDATE_COUNT : 1;
+  const size = BOARD_SIZES[difficulty];
+  const candidateCount = 1;
   let bestPuzzle = null;
   let fewestGivens = Number.POSITIVE_INFINITY;
 
@@ -246,8 +290,9 @@ export function createTangoPuzzle(seed, requestedDifficulty = 'aleatoire') {
     const attemptSeed = (seed + Math.imul(attempt, 0x9e3779b9)) >>> 0;
     const random = createRandom(attemptSeed);
     const solution = generateSolution(size, random);
-    const relations = getAllRelations(solution, random)
-      .slice(0, RELATION_COUNTS[difficulty]);
+    const relations = RELATION_COUNTS[difficulty] === 0
+      ? []
+      : getAllRelations(solution, random).slice(0, RELATION_COUNTS[difficulty]);
     const givens = makeGivens(solution, relations, random, difficulty);
     const puzzle = {
       game: 'tango',

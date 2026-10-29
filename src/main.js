@@ -1,9 +1,11 @@
 import { createRouter } from './router.js';
 import {
+  countQueensSolutions,
   createQueensPuzzle,
-  findLogicalQueensCross,
+  findLogicalQueensHint,
   validateQueens,
 } from './games/queens.js';
+import { QUEENS_REGION_COLORS } from './games/queens-colors.js';
 import { createZipPuzzle, validateZip } from './games/zip.js';
 import {
   createTangoPuzzle,
@@ -28,16 +30,6 @@ import {
 } from './i18n.js';
 
 const app = document.querySelector('#app');
-const REGION_COLORS = [
-  '#8db7f5',
-  '#f9c58f',
-  '#c5a0d6',
-  '#a4d39c',
-  '#f17f6e',
-  '#b7b39d',
-  '#e4ef80',
-  '#d8d8d8',
-];
 const PATCH_COLORS = [
   '#c9dda1',
   '#b8d5ef',
@@ -372,6 +364,7 @@ function renderPatchesGame(route) {
             <li><span class="patches-shape-icon shape-square" aria-hidden="true"></span>${t('patchesShapeSquare')}</li>
             <li><span class="patches-shape-icon shape-tall" aria-hidden="true"></span>${t('patchesShapeTall')}</li>
             <li><span class="patches-shape-icon shape-wide" aria-hidden="true"></span>${t('patchesShapeWide')}</li>
+            <li><span class="patches-shape-icon shape-any" aria-hidden="true"></span>${t('patchesShapeAny')}</li>
           </ul>
           <p class="patches-rules-note">${t('patchesRuleArea')}</p>
           <p>${t('patchesHowTo')}</p>
@@ -557,7 +550,7 @@ function renderTangoGame(route) {
           <ol>
             <li>${t('tangoRuleBalance')}</li>
             <li>${t('tangoRuleTriple')}</li>
-            <li>${t('tangoRuleRelations')}</li>
+            ${puzzle.relations.length ? `<li>${t('tangoRuleRelations')}</li>` : ''}
           </ol>
           <p>${t('tangoHowTo')}</p>
         </aside>
@@ -629,7 +622,9 @@ function renderPatchesBoard() {
       const key = `${row},${col}`;
       const placement = placementByCell.get(key);
       const clue = clueByCell.get(key);
-      const shape = clue ? t(`patchesShape${capitalize(clue.shape)}`) : '';
+      const shape = clue
+        ? t(`patchesShape${capitalize(clue.shape ?? 'any')}`)
+        : '';
       const clueColor = clue
         ? PATCH_COLORS[clue.id % PATCH_COLORS.length]
         : placement
@@ -650,7 +645,7 @@ function renderPatchesBoard() {
           : t('emptyCell');
       const clueMarker = clue
         ? `<span class="patches-clue-mark" aria-hidden="true">
-            <span class="patches-shape-icon shape-${clue.shape}"></span>
+            <span class="patches-shape-icon shape-${clue.shape ?? 'any'}"></span>
             ${clue.area == null ? '' : `<span class="patches-clue-area">${clue.area}</span>`}
           </span>`
         : '';
@@ -867,7 +862,7 @@ function formatPatchesHint(hint) {
     area: clue.area,
     height: hint.height,
     width: hint.width,
-    shape: t(`patchesShape${capitalize(clue.shape)}`),
+    shape: t(`patchesShape${capitalize(clue.shape ?? 'any')}`),
   });
 }
 
@@ -1080,13 +1075,37 @@ function createZipPathSvg(state) {
     x: col * scale + scale / 2,
     y: row * scale + scale / 2,
   }));
-  const pathData = points
-    .map(({ x, y }, index) => `${index === 0 ? 'M' : 'L'} ${x} ${y}`)
-    .join(' ');
+  const [headColor, tailColor] = state.puzzle.pathColors;
+  const segments = points.slice(1).flatMap((point, index) => {
+    const previous = points[index];
+    const subdivisions = 16;
+    return Array.from({ length: subdivisions }, (_, subdivision) => {
+      const start = subdivision / subdivisions;
+      const end = (subdivision + 1) / subdivisions;
+      const progress = (index + (start + end) / 2) / (points.length - 1);
+      const color = interpolateZipColor(headColor, tailColor, progress);
+      const startX = previous.x + (point.x - previous.x) * start;
+      const startY = previous.y + (point.y - previous.y) * start;
+      const endX = previous.x + (point.x - previous.x) * end;
+      const endY = previous.y + (point.y - previous.y) * end;
+      return `<path class="zip-path-line" stroke="${color}" d="M ${startX} ${startY} L ${endX} ${endY}" />`;
+    });
+  }).join('');
 
-  return `<svg class="zip-path-svg" style="--zip-path-hue: ${state.puzzle.pathHue}" viewBox="0 0 ${state.puzzle.size * scale} ${state.puzzle.size * scale}" aria-hidden="true">
-    <path class="zip-path-line" d="${pathData}" />
+  return `<svg class="zip-path-svg" viewBox="0 0 ${state.puzzle.size * scale} ${state.puzzle.size * scale}" aria-hidden="true">
+    ${segments}
   </svg>`;
+}
+
+function interpolateZipColor(start, end, progress) {
+  const channels = [1, 3, 5].map((offset) => {
+    const startValue = Number.parseInt(start.slice(offset, offset + 2), 16);
+    const endValue = Number.parseInt(end.slice(offset, offset + 2), 16);
+    return Math.round(startValue + (endValue - startValue) * progress)
+      .toString(16)
+      .padStart(2, '0');
+  });
+  return `#${channels.join('')}`;
 }
 
 function createZipWallsSvg(puzzle) {
@@ -1258,6 +1277,7 @@ function renderQueensBoard() {
   const validation = validateQueens(state.puzzle, state.placements);
   const conflictKeys = new Set(validation.conflicts.map(({ row, col }) => `${row},${col}`));
   const placementKeys = new Set(state.placements.map(({ row, col }) => `${row},${col}`));
+  board.style.setProperty('--queens-size', state.puzzle.size);
   board.innerHTML = state.puzzle.regions.flatMap((row, rowIndex) =>
     row.map((region, colIndex) => {
       const key = `${rowIndex},${colIndex}`;
@@ -1273,7 +1293,7 @@ function renderQueensBoard() {
           : '';
       return `<button class="queen-cell ${hasConflict ? 'has-conflict' : ''} ${isHinted ? 'is-hinted' : ''}"
         type="button" role="gridcell" aria-label="${t('queensCell', { row: rowIndex + 1, col: colIndex + 1, state: stateLabel })}"
-        aria-pressed="${cellState !== 'empty'}" style="--region-color:${REGION_COLORS[region % REGION_COLORS.length]}"
+        aria-pressed="${cellState !== 'empty'}" style="--region-color:${QUEENS_REGION_COLORS[region]}"
         data-row="${rowIndex}" data-col="${colIndex}">${marker}</button>`;
     }),
   ).join('');
@@ -1436,21 +1456,28 @@ function revealQueensHint() {
       const [row, col] = key.split(',').map(Number);
       return { row, col };
     });
-  const cross = findLogicalQueensCross(state.puzzle, {
+  const hint = findLogicalQueensHint(state.puzzle, {
     placements: state.placements,
     excluded,
   });
 
-  if (cross) {
-    const key = `${cross.row},${cross.col}`;
-    state.cellStates.set(key, 'excluded');
+  if (hint) {
+    const key = `${hint.row},${hint.col}`;
+    if (!hint.placeQueen) state.cellStates.set(key, 'excluded');
     state.hintCells = new Set([key]);
-    state.hintData = cross;
-    state.hintMessage = formatQueensHint(cross);
+    state.hintData = hint;
+    state.hintMessage = formatQueensHint(hint);
   } else {
     state.hintCells.clear();
     state.hintData = null;
-    state.hintMessage = t('queensNoHint');
+    state.hintMessage = t(
+      countQueensSolutions(state.puzzle, {
+        placements: state.placements,
+        excluded,
+      })
+        ? 'queensNoHint'
+        : 'queensInconsistentMarks',
+    );
   }
   renderQueensBoard();
 }
@@ -1610,6 +1637,12 @@ function formatTangoHint(hint) {
 }
 
 function formatQueensHint(hint) {
+  if (hint.placeQueen) {
+    return t('queensHintPlaceQueen', {
+      row: hint.row + 1,
+      col: hint.col + 1,
+    });
+  }
   return t('queensHintPrefix', {
     row: hint.row + 1,
     col: hint.col + 1,

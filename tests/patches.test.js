@@ -26,16 +26,27 @@ test('génère des grilles Patches déterministes et uniques à chaque difficult
       assert.deepEqual(puzzle, duplicate);
       assert.equal(puzzle.size, 6);
       assert.equal(puzzle.difficulty, difficulty);
+      if (difficulty === 'difficile') {
+        assert.ok(puzzle.clues.length <= 8);
+      }
       assert.ok(
         puzzle.solution.every(({ height, width }) => height * width >= 2 && height * width <= 8),
       );
       const hiddenAreaClues = puzzle.clues.flatMap((clue, clueId) =>
         clue.area == null ? [{ clue, clueId }] : [],
       );
+      const hiddenShapeClues = puzzle.clues.filter(
+        ({ shape }) => shape == null,
+      );
       if (difficulty === 'difficile') {
         assert.ok(hiddenAreaClues.length >= 2 && hiddenAreaClues.length <= 3);
+        assert.ok(hiddenShapeClues.length >= 2 && hiddenShapeClues.length <= 3);
       } else {
         assert.equal(hiddenAreaClues.length, difficulty === 'moyen' ? 1 : 0);
+        assert.ok(
+          hiddenShapeClues.length >= 1 &&
+          hiddenShapeClues.length <= (difficulty === 'moyen' ? 2 : 1),
+        );
       }
       assert.ok(
         hiddenAreaClues.every(({ clue, clueId }) =>
@@ -43,6 +54,7 @@ test('génère des grilles Patches déterministes et uniques à chaque difficult
           clue.shape === getPatchShape(puzzle.solution[clueId]),
         ),
       );
+      assert.ok(hiddenShapeClues.every(({ area }) => area != null));
       assert.equal(countPatchesSolutions(puzzle).count, 1);
       assert.equal(validatePatches(puzzle, getSolutionPlacements(puzzle)).won, true);
     }
@@ -53,6 +65,9 @@ test('génère des niveaux aléatoires valides pour une série de graines', () =
   for (let seed = 1; seed <= 1000; seed += 1) {
     const puzzle = createPatchesPuzzle(seed);
     assert.ok(['facile', 'moyen', 'difficile'].includes(puzzle.difficulty));
+    if (puzzle.difficulty === 'difficile') {
+      assert.ok(puzzle.clues.length <= 8);
+    }
     assert.ok(
       puzzle.solution.every(({ height, width }) => height * width >= 2 && height * width <= 8),
     );
@@ -145,6 +160,29 @@ test('autorise seulement les pièces qui respectent les indices et les placement
     size: 6,
     clues: [{ id: 0, row: 0, col: 0, area: null, shape: 'wide' }],
   };
+  const areaOnlyPuzzle = {
+    game: 'patches',
+    size: 4,
+    clues: [{ id: 0, row: 0, col: 0, area: 4, shape: null }],
+  };
+  assert.equal(
+    checkPatchesPlacement(areaOnlyPuzzle, [], {
+      top: 0,
+      left: 0,
+      height: 1,
+      width: 4,
+    }).valid,
+    true,
+  );
+  assert.equal(
+    checkPatchesPlacement(areaOnlyPuzzle, [], {
+      top: 0,
+      left: 0,
+      height: 2,
+      width: 2,
+    }).valid,
+    true,
+  );
   assert.equal(
     checkPatchesPlacement(variableAreaPuzzle, [], {
       top: 0,

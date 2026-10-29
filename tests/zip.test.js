@@ -9,7 +9,10 @@ test('génère un parcours ZIP déterministe qui remplit toute la grille', () =>
 
     assert.deepEqual(puzzle, repeated);
     assert.equal(puzzle.size, 6);
-    assert.ok(puzzle.pathHue >= 0 && puzzle.pathHue < 360);
+    assert.equal(puzzle.pathColors.length, 2);
+    assert.match(puzzle.pathColors[0], /^#[\da-f]{6}$/i);
+    assert.match(puzzle.pathColors[1], /^#[\da-f]{6}$/i);
+    assert.notEqual(puzzle.pathColors[0], puzzle.pathColors[1]);
     assert.ok(['facile', 'moyen', 'difficile'].includes(puzzle.difficulty));
     assert.ok(puzzle.checkpoints.length <= 10);
     assert.equal(puzzle.solution.length, puzzle.size ** 2);
@@ -49,7 +52,6 @@ test('génère un parcours ZIP déterministe qui remplit toute la grille', () =>
       { row: puzzle.checkpoints.at(-1).row, col: puzzle.checkpoints.at(-1).col },
     );
   }
-  assert.notEqual(createZipPuzzle(1).pathHue, createZipPuzzle(2).pathHue);
 });
 
 test('génère chaque difficulté demandée avec le nœud le plus élevé à la fin', () => {

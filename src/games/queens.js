@@ -1,5 +1,20 @@
-const BOARD_SIZE = 8;
+const BOARD_SIZES = {
+  facile: 8,
+  moyen: 9,
+  difficile: 10,
+};
 const MAX_GENERATION_ATTEMPTS = 5000;
+const MAX_HARD_GENERATION_ATTEMPTS = 150;
+const HARD_TEMPLATE_SEED = 123;
+let hardTemplate = null;
+const puzzleCache = new Map();
+
+function clonePuzzle(puzzle) {
+  return {
+    ...puzzle,
+    regions: puzzle.regions.map((row) => [...row]),
+  };
+}
 
 function createRandom(seed) {
   let state = seed >>> 0;
@@ -21,15 +36,15 @@ function shuffle(values, random) {
   return result;
 }
 
-function generateSolution(random) {
-  const columns = Array(BOARD_SIZE).fill(-1);
+function generateSolution(size, random) {
+  const columns = Array(size).fill(-1);
   const usedColumns = new Set();
 
   function place(row) {
-    if (row === BOARD_SIZE) return true;
+    if (row === size) return true;
 
     for (const column of shuffle(
-      Array.from({ length: BOARD_SIZE }, (_, index) => index),
+      Array.from({ length: size }, (_, index) => index),
       random,
     )) {
       if (usedColumns.has(column)) continue;
@@ -52,16 +67,16 @@ function generateSolution(random) {
   return columns.map((col, row) => ({ row, col }));
 }
 
-function generateRegions(solution, random) {
-  const regions = Array.from({ length: BOARD_SIZE }, () =>
-    Array(BOARD_SIZE).fill(-1),
+function generateRegions(size, solution, random, avoidSingleCellRegions = false) {
+  const regions = Array.from({ length: size }, () =>
+    Array(size).fill(-1),
   );
   const frontier = [];
 
   for (let region = 0; region < solution.length; region += 1) {
     const { row, col } = solution[region];
     regions[row][col] = region;
-    frontier.push({ row, col });
+    frontier.push({ row, col, region });
   }
 
   const directions = [
@@ -70,6 +85,32 @@ function generateRegions(solution, random) {
     [0, -1],
     [0, 1],
   ];
+
+  if (avoidSingleCellRegions) {
+    for (let region = 0; region < solution.length; region += 1) {
+      const { row, col } = solution[region];
+      const candidates = shuffle(
+        directions
+          .map(([rowDelta, colDelta]) => ({
+            row: row + rowDelta,
+            col: col + colDelta,
+          }))
+          .filter(
+            (cell) =>
+              cell.row >= 0 &&
+              cell.row < size &&
+              cell.col >= 0 &&
+              cell.col < size &&
+              regions[cell.row][cell.col] === -1,
+          ),
+        random,
+      );
+      if (candidates.length === 0) return null;
+      const [cell] = candidates;
+      regions[cell.row][cell.col] = region;
+      frontier.push({ ...cell, region });
+    }
+  }
 
   while (frontier.length > 0) {
     const index = Math.floor(random() * frontier.length);
@@ -80,29 +121,13 @@ function generateRegions(solution, random) {
       const col = cell.col + colDelta;
       if (
         row >= 0 &&
-        row < BOARD_SIZE &&
+        row < size &&
         col >= 0 &&
-        col < BOARD_SIZE &&
+        col < size &&
         regions[row][col] === -1
       ) {
-        const neighboringRegions = new Set();
-        for (const [neighborRowDelta, neighborColDelta] of directions) {
-          const neighborRow = row + neighborRowDelta;
-          const neighborCol = col + neighborColDelta;
-          if (
-            neighborRow >= 0 &&
-            neighborRow < BOARD_SIZE &&
-            neighborCol >= 0 &&
-            neighborCol < BOARD_SIZE &&
-            regions[neighborRow][neighborCol] !== -1
-          ) {
-            neighboringRegions.add(regions[neighborRow][neighborCol]);
-          }
-        }
-
-        const choices = [...neighboringRegions];
-        regions[row][col] = choices[Math.floor(random() * choices.length)];
-        frontier.push({ row, col });
+        regions[row][col] = cell.region;
+        frontier.push({ row, col, region: cell.region });
       }
     }
   }
@@ -110,7 +135,141 @@ function generateRegions(solution, random) {
   return regions;
 }
 
-function countSolutions(puzzle, placements = [], excluded = [], stopAfter = 2) {
+function hasAtMostOneSingleCellRegion(regions) {
+  const regionSizes = new Map();
+  for (const row of regions) {
+    for (const region of row) {
+      regionSizes.set(region, (regionSizes.get(region) ?? 0) + 1);
+    }
+  }
+  return [...regionSizes.values()].filter((count) => count === 1).length <= 1;
+}
+
+function isRegionConnected(regions, region) {
+  const size = regions.length;
+  const cells = [];
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      if (regions[row][col] === region) cells.push({ row, col });
+    }
+  }
+  if (cells.length === 0) return false;
+
+  const visited = new Set([`${cells[0].row},${cells[0].col}`]);
+  const pending = [cells[0]];
+  while (pending.length > 0) {
+    const { row, col } = pending.pop();
+    for (const [rowDelta, colDelta] of [
+      [-1, 0],
+      [1, 0],
+      [0, -1],
+      [0, 1],
+    ]) {
+      const neighborRow = row + rowDelta;
+      const neighborCol = col + colDelta;
+      const key = `${neighborRow},${neighborCol}`;
+      if (
+        neighborRow >= 0 &&
+        neighborRow < size &&
+        neighborCol >= 0 &&
+        neighborCol < size &&
+        regions[neighborRow][neighborCol] === region &&
+        !visited.has(key)
+      ) {
+        visited.add(key);
+        pending.push({ row: neighborRow, col: neighborCol });
+      }
+    }
+  }
+  return visited.size === cells.length;
+}
+
+function moveRegionCell(regions, row, col, destinationRegion) {
+  const sourceRegion = regions[row][col];
+  if (sourceRegion === destinationRegion) return null;
+
+  const updated = regions.map((line) => [...line]);
+  updated[row][col] = destinationRegion;
+  const isAdjacentToDestination = [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ].some(([rowDelta, colDelta]) => {
+    const neighborRow = row + rowDelta;
+    const neighborCol = col + colDelta;
+    return (
+      neighborRow >= 0 &&
+      neighborRow < regions.length &&
+      neighborCol >= 0 &&
+      neighborCol < regions.length &&
+      regions[neighborRow][neighborCol] === destinationRegion
+    );
+  });
+  if (
+    !isAdjacentToDestination ||
+    !hasAtMostOneSingleCellRegion(updated) ||
+    !isRegionConnected(updated, sourceRegion) ||
+    !isRegionConnected(updated, destinationRegion)
+  ) {
+    return null;
+  }
+  return updated;
+}
+
+function makeQueensRegionsUnique(puzzle, solution, random) {
+  const solutionKeys = new Set(
+    solution.map(({ row, col }) => `${row},${col}`),
+  );
+  const changedCells = new Set();
+  let result = countSolutions(puzzle, [], [], 2, true);
+  let changes = 0;
+
+  while (result.count > 1 && changes < puzzle.size * 2) {
+    const alternative = result.solutions.find(
+      (candidate) =>
+        !candidate.every(({ row, col }) => solutionKeys.has(`${row},${col}`)),
+    );
+    if (!alternative) return null;
+
+    const candidates = [];
+    for (const queen of alternative) {
+      if (solutionKeys.has(`${queen.row},${queen.col}`)) continue;
+      const cellKey = `${queen.row},${queen.col}`;
+      if (changedCells.has(cellKey)) continue;
+
+      for (const otherQueen of alternative) {
+        if (otherQueen === queen) continue;
+        const targetRegion = puzzle.regions[otherQueen.row][otherQueen.col];
+        const candidate = moveRegionCell(
+          puzzle.regions,
+          queen.row,
+          queen.col,
+          targetRegion,
+        );
+        if (candidate) {
+          candidates.push({ row: queen.row, col: queen.col, regions: candidate });
+        }
+      }
+    }
+    if (candidates.length === 0) return null;
+
+    const candidate = candidates[Math.floor(random() * candidates.length)];
+    puzzle.regions = candidate.regions;
+    changedCells.add(`${candidate.row},${candidate.col}`);
+    changes += 1;
+    result = countSolutions(puzzle, [], [], 2, true);
+  }
+  return result.count === 1 ? puzzle : null;
+}
+
+function countSolutions(
+  puzzle,
+  placements = [],
+  excluded = [],
+  stopAfter = 2,
+  captureSolution = false,
+) {
   const { size, regions } = puzzle;
   const excludedKeys = new Set(excluded.map(({ row, col }) => `${row},${col}`));
   const fixedByRow = new Map();
@@ -124,11 +283,11 @@ function countSolutions(puzzle, placements = [], excluded = [], stopAfter = 2) {
   const regionCounts = new Map();
   const fixedQueens = [];
   for (const [row, columns] of fixedByRow) {
-    if (columns.length !== 1) return { count: 0, nodes: 0 };
+    if (columns.length !== 1) return { count: 0, nodes: 0, solution: null };
     const col = columns[0];
     const region = regions[row][col];
     if (excludedKeys.has(`${row},${col}`)) {
-      return { count: 0, nodes: 0 };
+      return { count: 0, nodes: 0, solution: null };
     }
     columnCounts[col] += 1;
     regionCounts.set(region, (regionCounts.get(region) ?? 0) + 1);
@@ -139,7 +298,7 @@ function countSolutions(puzzle, placements = [], excluded = [], stopAfter = 2) {
     columnCounts.some((count) => count > 1) ||
     [...regionCounts.values()].some((count) => count > 1)
   ) {
-    return { count: 0, nodes: 0 };
+    return { count: 0, nodes: 0, solution: null };
   }
   fixedQueens.sort((a, b) => a.row - b.row);
   for (let index = 1; index < fixedQueens.length; index += 1) {
@@ -147,7 +306,7 @@ function countSolutions(puzzle, placements = [], excluded = [], stopAfter = 2) {
       fixedQueens[index].row - fixedQueens[index - 1].row <= 1 &&
       Math.abs(fixedQueens[index].col - fixedQueens[index - 1].col) <= 1
     ) {
-      return { count: 0, nodes: 0 };
+      return { count: 0, nodes: 0, solution: null };
     }
   }
 
@@ -158,11 +317,21 @@ function countSolutions(puzzle, placements = [], excluded = [], stopAfter = 2) {
   const solutionColumns = Array(size).fill(-1);
   let count = 0;
   let nodes = 0;
+  let firstSolution = null;
+  const foundSolutions = [];
 
   function visit(row) {
     if (count >= stopAfter) return;
     if (row === size) {
       count += 1;
+      const solution = solutionColumns.map((col, queenRow) => ({
+        row: queenRow,
+        col,
+      }));
+      if (captureSolution) foundSolutions.push(solution);
+      if (firstSolution === null) {
+        firstSolution = solution;
+      }
       return;
     }
 
@@ -199,7 +368,7 @@ function countSolutions(puzzle, placements = [], excluded = [], stopAfter = 2) {
   }
 
   visit(0);
-  return { count, nodes };
+  return { count, nodes, solution: firstSolution, solutions: foundSolutions };
 }
 
 export function countQueensSolutions(puzzle, options = {}) {
@@ -238,7 +407,7 @@ export function countQueensSolutions(puzzle, options = {}) {
   return countSolutions(puzzle, placements, excluded).count;
 }
 
-export function findLogicalQueensCross(puzzle, options = {}) {
+export function findLogicalQueensHint(puzzle, options = {}) {
   const placements = options.placements ?? [];
   const excluded = options.excluded ?? [];
   const excludedKeys = new Set(excluded.map(({ row, col }) => `${row},${col}`));
@@ -342,15 +511,52 @@ export function findLogicalQueensCross(puzzle, options = {}) {
         }
       }
     }
+    return { ...forcedQueen, placeQueen: true };
   }
 
   return null;
 }
 
-function classifyDifficulty(searchNodes) {
-  if (searchNodes < 3000) return 'facile';
-  if (searchNodes < 5000) return 'moyen';
-  return 'difficile';
+function transformHardTemplate(seed) {
+  if (!hardTemplate) {
+    hardTemplate = createQueensPuzzle(HARD_TEMPLATE_SEED, 'difficile');
+  }
+
+  const { size, regions } = hardTemplate;
+  const transforms = [
+    (row, col) => [row, col],
+    (row, col) => [col, size - 1 - row],
+    (row, col) => [size - 1 - row, size - 1 - col],
+    (row, col) => [size - 1 - col, row],
+    (row, col) => [row, size - 1 - col],
+    (row, col) => [size - 1 - row, col],
+    (row, col) => [col, row],
+    (row, col) => [size - 1 - col, size - 1 - row],
+  ];
+  const transform = transforms[seed % transforms.length];
+  const regionIds = shuffle(
+    Array.from({ length: size }, (_, region) => region),
+    createRandom(seed),
+  );
+  const transformedRegions = Array.from({ length: size }, () =>
+    Array(size).fill(-1),
+  );
+
+  for (let row = 0; row < size; row += 1) {
+    for (let col = 0; col < size; col += 1) {
+      const [newRow, newCol] = transform(row, col);
+      transformedRegions[newRow][newCol] =
+        regionIds[regions[row][col]];
+    }
+  }
+
+  return {
+    game: 'queens',
+    level: seed,
+    difficulty: 'difficile',
+    size,
+    regions: transformedRegions,
+  };
 }
 
 const DIFFICULTIES = new Set(['facile', 'moyen', 'difficile']);
@@ -363,29 +569,67 @@ export function createQueensPuzzle(seed, requestedDifficulty = 'aleatoire') {
     throw new RangeError('Difficulté Queens invalide.');
   }
 
-  for (let attempt = 0; attempt < MAX_GENERATION_ATTEMPTS; attempt += 1) {
+  const difficulty =
+    requestedDifficulty === 'aleatoire'
+      ? ['facile', 'moyen', 'difficile'][
+          Math.floor(createRandom(seed)() * DIFFICULTIES.size)
+        ]
+      : requestedDifficulty;
+  const cacheKey = `${seed}:${difficulty}`;
+  if (puzzleCache.has(cacheKey)) {
+    return clonePuzzle(puzzleCache.get(cacheKey));
+  }
+  const size = BOARD_SIZES[difficulty];
+
+  const maxAttempts =
+    difficulty === 'difficile'
+      ? MAX_HARD_GENERATION_ATTEMPTS
+      : MAX_GENERATION_ATTEMPTS;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     const attemptSeed = ((seed + attempt - 1) % 0xffffffff) + 1;
     const random = createRandom(attemptSeed);
-    const solution = generateSolution(random);
+    const solution = generateSolution(size, random);
+    const regions = generateRegions(
+      size,
+      solution,
+      random,
+      difficulty === 'difficile',
+    );
+    if (!regions) continue;
     const puzzle = {
       game: 'queens',
       level: seed,
-      size: BOARD_SIZE,
-      regions: generateRegions(solution, random),
+      size,
+      regions,
     };
-    const result = countSolutions(puzzle);
-
-    if (result.count === 1) {
-      const difficulty = classifyDifficulty(result.nodes);
-      if (requestedDifficulty === 'aleatoire' || difficulty === requestedDifficulty) {
-        puzzle.difficulty = difficulty;
-        return puzzle;
+    if (
+      difficulty === 'difficile' &&
+      !hasAtMostOneSingleCellRegion(regions)
+    ) {
+      continue;
+    }
+    if (difficulty === 'difficile') {
+      const uniquePuzzle = makeQueensRegionsUnique(puzzle, solution, random);
+      if (uniquePuzzle) {
+        uniquePuzzle.difficulty = difficulty;
+        puzzleCache.set(cacheKey, clonePuzzle(uniquePuzzle));
+        return uniquePuzzle;
       }
+    } else if (countSolutions(puzzle).count === 1) {
+      puzzle.difficulty = difficulty;
+      puzzleCache.set(cacheKey, clonePuzzle(puzzle));
+      return puzzle;
     }
   }
 
+  if (difficulty === 'difficile' && seed !== HARD_TEMPLATE_SEED) {
+    const puzzle = transformHardTemplate(seed);
+    puzzleCache.set(cacheKey, clonePuzzle(puzzle));
+    return puzzle;
+  }
+
   throw new Error(
-    `Impossible de générer une grille Queens ${requestedDifficulty} à solution unique après ${MAX_GENERATION_ATTEMPTS} essais.`,
+    `Impossible de générer une grille Queens ${difficulty} à solution unique après ${maxAttempts} essais.`,
   );
 }
 

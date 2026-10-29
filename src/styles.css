@@ -270,7 +270,7 @@ body[data-game-theme]:not([data-game-theme="home"]) .game-heading .eyebrow { col
   box-shadow: 0 18px 44px #18362b14;
   overflow: hidden;
 }
-.queens-board { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); position: relative; }
+.queens-board { display: grid; grid-template-columns: repeat(var(--queens-size), minmax(0, 1fr)); grid-template-rows: repeat(var(--queens-size), minmax(0, 1fr)); position: relative; }
 .queen-cell {
   align-items: center;
   appearance: none;
@@ -336,7 +336,7 @@ body[data-game-theme]:not([data-game-theme="home"]) .game-heading .eyebrow { col
   width: 52%;
 }
 .zip-path-svg { height: 100%; inset: 0; overflow: visible; pointer-events: none; position: absolute; width: 100%; z-index: 1; }
-.zip-path-line { fill: none; stroke: hsl(var(--zip-path-hue) 72% 42%); stroke-linecap: round; stroke-linejoin: round; stroke-width: 64; }
+.zip-path-line { fill: none; stroke-linecap: round; stroke-width: 66; }
 .zip-walls-svg, .queens-regions-svg { height: 100%; inset: 0; overflow: hidden; pointer-events: none; position: absolute; width: 100%; }
 .zip-walls-svg { z-index: 4; }
 .zip-walls-svg g { fill: none; stroke: #34414d; stroke-linecap: square; stroke-width: 6; }
@@ -766,7 +766,6 @@ body[data-game-theme]:not([data-game-theme="home"]) .game-heading .eyebrow { col
   .zip-walls-svg g { stroke: #d2dce5; }
   .queens-regions-svg g { stroke: #000; }
   .zip-cell:hover { background-color: #30483c; }
-  .zip-path-line { stroke: hsl(var(--zip-path-hue) 78% 62%); }
   .zip-node { background: #10251d; border-color: #d8e5de; }
   .tango-cell { background: #1b252e; border-color: #34414d; color: #edf2f7; }
   .patches-cell { background: #1b252e; border-color: #34414d; color: #edf2f7; }

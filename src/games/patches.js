@@ -7,12 +7,18 @@ const MAX_PARTITION_NODES = 20_000;
 const DIFFICULTY_PATCH_COUNTS = {
   facile: [5, 7],
   moyen: [7, 10],
-  difficile: [10, 13],
+  difficile: [5, 8],
 };
 
 const DIFFICULTY_BLANK_AREAS = {
   facile: [0, 0],
   moyen: [1, 1],
+  difficile: [2, 3],
+};
+
+const DIFFICULTY_BLANK_SHAPES = {
+  facile: [1, 1],
+  moyen: [1, 2],
   difficile: [2, 3],
 };
 
@@ -133,6 +139,11 @@ function createClues(solutionPatches, difficulty, random) {
   const blankAreaCount =
     minimumBlankAreas +
     Math.floor(random() * (maximumBlankAreas - minimumBlankAreas + 1));
+  const [minimumBlankShapes, maximumBlankShapes] =
+    DIFFICULTY_BLANK_SHAPES[difficulty];
+  const blankShapeCount =
+    minimumBlankShapes +
+    Math.floor(random() * (maximumBlankShapes - minimumBlankShapes + 1));
   const hiddenAreaIds = new Set(
     shuffle(
       solutionPatches
@@ -142,6 +153,15 @@ function createClues(solutionPatches, difficulty, random) {
       random,
     ).slice(0, blankAreaCount),
   );
+  const hiddenShapeIds = new Set(
+    shuffle(
+      solutionPatches
+        .map((patch, index) => ({ patch, index }))
+        .filter(({ index }) => !hiddenAreaIds.has(index))
+        .map(({ index }) => index),
+      random,
+    ).slice(0, blankShapeCount),
+  );
 
   return solutionPatches.map((patch, index) => {
     const clueCell = patch.cells[Math.floor(random() * patch.cells.length)];
@@ -150,7 +170,7 @@ function createClues(solutionPatches, difficulty, random) {
       row: Math.floor(clueCell / BOARD_SIZE),
       col: clueCell % BOARD_SIZE,
       area: hiddenAreaIds.has(index) ? null : patch.area,
-      shape: patch.shape,
+      shape: hiddenShapeIds.has(index) ? null : patch.shape,
     };
   });
 }
@@ -163,7 +183,7 @@ function getCandidates(clue, size, occupied = 0n) {
         height * width < MIN_PATCH_AREA ||
         (clue.area != null && height * width !== clue.area) ||
         height * width > MAX_PATCH_AREA ||
-        getShape(height, width) !== clue.shape
+        (clue.shape != null && getShape(height, width) !== clue.shape)
       ) {
         continue;
       }
@@ -235,7 +255,7 @@ export function checkPatchesPlacement(puzzle, placements, rectangle) {
   if (height * width > MAX_PATCH_AREA) {
     return { valid: false, reason: 'patchesSelectionArea' };
   }
-  if (getShape(height, width) !== clue.shape) {
+  if (clue.shape != null && getShape(height, width) !== clue.shape) {
     return { valid: false, reason: 'patchesSelectionShape' };
   }
 
@@ -386,7 +406,8 @@ export function validatePatches(puzzle, placements) {
     }
 
     const cells = rectangleCells(top, left, height, width, size);
-    const shapeMatches = getShape(height, width) === clue.shape;
+    const shapeMatches =
+      clue.shape == null || getShape(height, width) === clue.shape;
     const areaMatches = clue.area == null || cells.length === clue.area;
     const areaInRange =
       cells.length >= MIN_PATCH_AREA && cells.length <= MAX_PATCH_AREA;
@@ -471,8 +492,8 @@ export function findLogicalPatchesHint(puzzle, placements) {
         width,
         explanation:
           clue.area == null
-            ? `L’indice ${clue.shape} ne peut couvrir qu’un seul rectangle libre de cette forme.`
-            : `L’indice ${clue.area} ${clue.shape} ne peut couvrir qu’un seul rectangle libre de cette forme.`,
+            ? `L’indice ${clue.shape ?? 'de forme libre'} ne peut couvrir qu’un seul rectangle libre.`
+            : `L’indice ${clue.area}${clue.shape ? ` ${clue.shape}` : ''} ne peut couvrir qu’un seul rectangle libre.`,
       };
     }
   }
