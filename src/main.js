@@ -1,21 +1,17 @@
 import { createRouter } from './router.js';
 import {
-  countQueensSolutions,
   createQueensPuzzle,
-  findLogicalQueensHint,
   validateQueens,
 } from './games/queens.js';
 import { QUEENS_REGION_COLORS } from './games/queens-colors.js';
 import { createZipPuzzle, validateZip } from './games/zip.js';
 import {
   createTangoPuzzle,
-  findLogicalTangoHint,
   validateTango,
 } from './games/tango.js';
 import {
   checkPatchesPlacement,
   createPatchesPuzzle,
-  findLogicalPatchesHint,
   validatePatches,
 } from './games/patches.js';
 import { recordLevelCompletion } from './progress.js';
@@ -77,16 +73,6 @@ function attachLanguageSelector() {
       render(currentRoute);
       if (previousState && activeGameState?.game === previousState.game) {
         activeGameState = previousState;
-        if (previousState.hintData) {
-          previousState.hintMessage =
-            previousState.game === 'tango'
-              ? formatTangoHint(previousState.hintData)
-              : formatQueensHint(previousState.hintData);
-        } else if (previousState.hintMessage) {
-          previousState.hintMessage = t(
-            previousState.game === 'tango' ? 'tangoNoHint' : 'queensNoHint',
-          );
-        }
         if (previousState.game === 'patches') renderPatchesBoard();
         else if (previousState.game === 'zip') renderZipBoard();
         else if (previousState.game === 'tango') renderTangoBoard();
@@ -213,9 +199,6 @@ function renderGame(route) {
     puzzle,
     placements: [],
     cellStates: new Map(),
-    hintMessage: '',
-    hintCells: new Set(),
-    hintData: null,
     dragging: null,
     suppressClick: false,
     startedAt: Date.now(),
@@ -258,7 +241,6 @@ function renderGame(route) {
           <div class="game-actions">
             <div class="action-buttons">
               <button class="secondary-button" id="clear-board" type="button">${t('erase')}</button>
-              <button class="secondary-button hint-button" id="queens-hint" type="button">${t('hint')}</button>
             </div>
           </div>
         </div>
@@ -284,7 +266,6 @@ function renderGame(route) {
     router.navigateRandom('queens', event.target.value);
   });
   app.querySelector('#clear-board').addEventListener('click', clearQueensBoard);
-  app.querySelector('#queens-hint').addEventListener('click', revealQueensHint);
   const board = app.querySelector('#queens-board');
   board.addEventListener('click', handleQueensBoardClick);
   board.addEventListener('pointerdown', handleQueensPointerDown);
@@ -306,7 +287,6 @@ function renderPatchesGame(route) {
     dragging: null,
     suppressClick: false,
     message: '',
-    hintData: null,
     startedAt: Date.now(),
     completed: false,
     completionTime: null,
@@ -349,7 +329,6 @@ function renderPatchesGame(route) {
             <div class="action-buttons">
               <button class="secondary-button" id="patches-reset" type="button">${t('restart')}</button>
               <button class="secondary-button" id="patches-undo" type="button">${t('undo')}</button>
-              <button class="secondary-button hint-button" id="patches-hint" type="button">${t('hint')}</button>
             </div>
           </div>
         </div>
@@ -382,7 +361,6 @@ function renderPatchesGame(route) {
   });
   app.querySelector('#patches-reset').addEventListener('click', resetPatchesBoard);
   app.querySelector('#patches-undo').addEventListener('click', undoPatchesPlacement);
-  app.querySelector('#patches-hint').addEventListener('click', revealPatchesHint);
   const board = app.querySelector('#patches-board');
   board.addEventListener('click', handlePatchesBoardClick);
   board.addEventListener('pointerdown', handlePatchesPointerDown);
@@ -499,9 +477,6 @@ function renderTangoGame(route) {
     completed: false,
     warningTimer: null,
     showWarnings: false,
-    hintCell: null,
-    hintMessage: '',
-    hintData: null,
   };
 
   app.innerHTML = `
@@ -540,7 +515,6 @@ function renderTangoGame(route) {
           <div class="game-actions">
             <div class="action-buttons">
               <button class="secondary-button" id="tango-reset" type="button">${t('erase')}</button>
-              <button class="secondary-button hint-button" id="tango-hint" type="button">${t('hint')}</button>
             </div>
           </div>
         </div>
@@ -566,7 +540,6 @@ function renderTangoGame(route) {
     router.navigateRandom('tango', event.target.value);
   });
   app.querySelector('#tango-reset').addEventListener('click', resetTangoBoard);
-  app.querySelector('#tango-hint').addEventListener('click', revealTangoHint);
   app.querySelector('#tango-board').addEventListener('click', handleTangoBoardClick);
   renderTangoBoard();
 }
@@ -600,23 +573,6 @@ function renderPatchesBoard() {
   const selectionColor = selectedClue
     ? PATCH_COLORS[selectedClue.id % PATCH_COLORS.length]
     : '#cbd3d9';
-  const hintedCells = new Set();
-  if (state.hintData) {
-    for (
-      let row = state.hintData.top;
-      row < state.hintData.top + state.hintData.height;
-      row += 1
-    ) {
-      for (
-        let col = state.hintData.left;
-        col < state.hintData.left + state.hintData.width;
-        col += 1
-      ) {
-        hintedCells.add(`${row},${col}`);
-      }
-    }
-  }
-
   board.innerHTML = Array.from({ length: puzzle.size }, (_, row) =>
     Array.from({ length: puzzle.size }, (_, col) => {
       const key = `${row},${col}`;
@@ -660,7 +616,7 @@ function renderPatchesBoard() {
             .map(([edge]) => `patch-edge-${edge}`)
             .join(' ')
         : '';
-      return `<button class="patches-cell ${placement ? 'is-occupied' : ''} ${patchEdges} ${clue ? 'has-clue' : ''} ${hintedCells.has(key) ? 'is-hinted' : ''} ${isSelecting ? 'is-selecting' : ''}"
+      return `<button class="patches-cell ${placement ? 'is-occupied' : ''} ${patchEdges} ${clue ? 'has-clue' : ''} ${isSelecting ? 'is-selecting' : ''}"
         type="button" role="gridcell"
         aria-label="${t('rowColumn', { row: row + 1, col: col + 1, state: cellState })}"
         aria-pressed="${Boolean(placement)}" ${state.completed ? 'disabled' : ''}
@@ -676,23 +632,19 @@ function renderPatchesBoard() {
     state.completionTime = Math.floor((Date.now() - state.startedAt) / 1000);
     recordLevelCompletion('patches', puzzle.level, state.completionTime);
   }
-  status.hidden = state.completed || (!state.message && !state.hintData);
+  status.hidden = state.completed || !state.message;
   if (status.hidden) {
     status.className = 'game-status';
     status.textContent = '';
-  } else if (state.message) {
-    status.className = `game-status ${state.message === 'patchesNoHint' ? 'hint' : 'error'}`;
+  } else {
+    status.className = 'game-status error';
     status.textContent = t(state.message);
-  } else if (state.hintData) {
-    status.className = 'game-status hint';
-    status.textContent = formatPatchesHint(state.hintData);
   }
 
   app.querySelector('#patches-reset').disabled =
     state.completed || placements.length === 0;
   app.querySelector('#patches-undo').disabled =
     state.completed || placements.length === 0;
-  app.querySelector('#patches-hint').disabled = state.completed;
   renderVictoryDialog(state);
 }
 
@@ -716,7 +668,6 @@ function handlePatchesBoardClick(event) {
       ({ clueId }) => clueId !== Number(existingPatchId),
     );
     state.message = '';
-    state.hintData = null;
     state.selection = null;
     renderPatchesBoard();
     return;
@@ -762,7 +713,6 @@ function handlePatchesPointerMove(event) {
     Number(cell.dataset.col),
   );
   state.message = '';
-  state.hintData = null;
   renderPatchesBoard();
 }
 
@@ -810,7 +760,6 @@ function tryPlacePatchesRectangle(rectangle) {
 
   const result = checkPatchesPlacement(state.puzzle, state.placements, rectangle);
   state.selection = rectangle;
-  state.hintData = null;
   if (!result.valid) {
     state.message = result.reason;
     renderPatchesBoard();
@@ -823,24 +772,12 @@ function tryPlacePatchesRectangle(rectangle) {
   renderPatchesBoard();
 }
 
-function revealPatchesHint() {
-  const state = activeGameState;
-  if (!state || state.game !== 'patches' || state.completed) return;
-
-  state.selection = null;
-  state.message = '';
-  state.hintData = findLogicalPatchesHint(state.puzzle, state.placements);
-  if (!state.hintData) state.message = 'patchesNoHint';
-  renderPatchesBoard();
-}
-
 function resetPatchesBoard() {
   const state = activeGameState;
   if (!state || state.game !== 'patches' || state.completed) return;
   state.placements = [];
   state.selection = null;
   state.message = '';
-  state.hintData = null;
   renderPatchesBoard();
 }
 
@@ -850,20 +787,7 @@ function undoPatchesPlacement() {
   state.placements.pop();
   state.selection = null;
   state.message = '';
-  state.hintData = null;
   renderPatchesBoard();
-}
-
-function formatPatchesHint(hint) {
-  const clue = activeGameState.puzzle.clues.find(({ id }) => id === hint.clueId);
-  return t('patchesHintPrefix', {
-    row: clue.row + 1,
-    col: clue.col + 1,
-    area: clue.area,
-    height: hint.height,
-    width: hint.width,
-    shape: t(`patchesShape${capitalize(clue.shape ?? 'any')}`),
-  });
 }
 
 function capitalize(value) {
@@ -939,8 +863,7 @@ function renderTangoBoard() {
       const fixed = state.fixedCells.has(key);
       const marker = value ? renderTangoSymbol(value) : '';
       const symbolLabel = value === 'sun' ? t('sun') : value === 'moon' ? t('moon') : t('blank');
-      const hinted = state.hintCell?.row === rowIndex && state.hintCell?.col === colIndex;
-      return `<button class="tango-cell ${value ? `is-${value}` : ''} ${fixed ? 'is-fixed' : ''} ${showWarnings && conflicts.has(key) ? 'has-conflict' : ''} ${hinted ? 'is-hinted' : ''}"
+      return `<button class="tango-cell ${value ? `is-${value}` : ''} ${fixed ? 'is-fixed' : ''} ${showWarnings && conflicts.has(key) ? 'has-conflict' : ''}"
         type="button" role="gridcell" aria-label="${t('rowColumn', { row: rowIndex + 1, col: colIndex + 1, state: `${symbolLabel}${fixed ? `, ${t('fixedHint')}` : ''}` })}"
         aria-pressed="${Boolean(value)}" ${fixed || state.completed ? 'disabled' : ''}
         data-row="${rowIndex}" data-col="${colIndex}">${marker}</button>`;
@@ -970,15 +893,10 @@ function renderTangoBoard() {
       cell.disabled = true;
     });
   }
-  status.hidden =
-    state.completed ||
-    (!state.hintMessage && (validation.valid || !showWarnings));
+  status.hidden = state.completed || validation.valid || !showWarnings;
   if (state.completed) {
     status.className = 'game-status';
     status.textContent = '';
-  } else if (state.hintMessage) {
-    status.className = 'game-status hint';
-    status.textContent = state.hintMessage;
   } else if (!validation.valid && showWarnings) {
     status.className = 'game-status error';
     status.textContent = t('tangoConflict');
@@ -1009,9 +927,6 @@ function handleTangoBoardClick(event) {
   window.clearTimeout(state.warningTimer);
   state.warningTimer = null;
   state.showWarnings = false;
-  state.hintCell = null;
-  state.hintMessage = '';
-  state.hintData = null;
   renderTangoBoard();
   const currentState = state;
   state.warningTimer = window.setTimeout(() => {
@@ -1022,35 +937,12 @@ function handleTangoBoardClick(event) {
   }, 1500);
 }
 
-function revealTangoHint() {
-  const state = activeGameState;
-  if (!state || state.game !== 'tango' || state.completed) return;
-
-  window.clearTimeout(state.warningTimer);
-  state.warningTimer = null;
-  state.showWarnings = false;
-  const hint = findLogicalTangoHint(state.puzzle, state.grid);
-  if (hint) {
-    state.hintCell = { row: hint.row, col: hint.col };
-    state.hintData = hint;
-    state.hintMessage = formatTangoHint(hint);
-  } else {
-    state.hintCell = null;
-    state.hintData = null;
-    state.hintMessage = t('tangoNoHint');
-  }
-  renderTangoBoard();
-}
-
 function resetTangoBoard() {
   const state = activeGameState;
   if (!state || state.game !== 'tango' || state.completed) return;
   window.clearTimeout(state.warningTimer);
   state.warningTimer = null;
   state.showWarnings = false;
-  state.hintCell = null;
-  state.hintMessage = '';
-  state.hintData = null;
   state.grid = state.puzzle.givens.map((row) => [...row]);
   renderTangoBoard();
 }
@@ -1284,23 +1176,19 @@ function renderQueensBoard() {
       const cellState = state.cellStates.get(key) ?? 'empty';
       const hasQueen = placementKeys.has(key);
       const hasConflict = conflictKeys.has(key);
-      const isHinted = state.hintCells.has(key);
       const stateLabel = hasQueen ? t('queen') : cellState === 'excluded' ? t('eliminated') : t('blank');
       const marker = hasQueen
         ? '<span class="queen-marker" aria-hidden="true">♛</span>'
         : cellState === 'excluded'
           ? '<span class="excluded-marker" aria-hidden="true">×</span>'
           : '';
-      return `<button class="queen-cell ${hasConflict ? 'has-conflict' : ''} ${isHinted ? 'is-hinted' : ''}"
+      return `<button class="queen-cell ${hasConflict ? 'has-conflict' : ''}"
         type="button" role="gridcell" aria-label="${t('queensCell', { row: rowIndex + 1, col: colIndex + 1, state: stateLabel })}"
         aria-pressed="${cellState !== 'empty'}" style="--region-color:${QUEENS_REGION_COLORS[region]}"
         data-row="${rowIndex}" data-col="${colIndex}">${marker}</button>`;
     }),
   ).join('');
   board.insertAdjacentHTML('beforeend', createQueensRegionsSvg(state.puzzle));
-
-  const hintButton = app.querySelector('#queens-hint');
-  hintButton.disabled = state.completed;
 
   const status = app.querySelector('#game-status');
   if (validation.won && !state.completed) {
@@ -1309,17 +1197,13 @@ function renderQueensBoard() {
     state.completionTime = elapsedSeconds;
     recordLevelCompletion('queens', state.puzzle.level, elapsedSeconds);
   }
-  status.hidden =
-    state.completed || (validation.valid && !state.hintMessage);
+  status.hidden = state.completed || validation.valid;
   if (status.hidden) {
     status.className = 'game-status';
     status.textContent = '';
   } else if (!validation.valid) {
     status.className = 'game-status error';
     status.textContent = t('queensConflict');
-  } else {
-    status.className = 'game-status hint';
-    status.textContent = state.hintMessage;
   }
   renderVictoryDialog(state);
 }
@@ -1441,45 +1325,6 @@ function applyDraggedCross(row, col, mode) {
     activeGameState.cellStates.set(key, 'excluded');
   }
   activeGameState.completed = false;
-  activeGameState.hintMessage = '';
-  activeGameState.hintCells.clear();
-  activeGameState.hintData = null;
-}
-
-function revealQueensHint() {
-  const state = activeGameState;
-  if (!state || state.completed) return;
-
-  const excluded = [...state.cellStates]
-    .filter(([, cellState]) => cellState === 'excluded')
-    .map(([key]) => {
-      const [row, col] = key.split(',').map(Number);
-      return { row, col };
-    });
-  const hint = findLogicalQueensHint(state.puzzle, {
-    placements: state.placements,
-    excluded,
-  });
-
-  if (hint) {
-    const key = `${hint.row},${hint.col}`;
-    if (!hint.placeQueen) state.cellStates.set(key, 'excluded');
-    state.hintCells = new Set([key]);
-    state.hintData = hint;
-    state.hintMessage = formatQueensHint(hint);
-  } else {
-    state.hintCells.clear();
-    state.hintData = null;
-    state.hintMessage = t(
-      countQueensSolutions(state.puzzle, {
-        placements: state.placements,
-        excluded,
-      })
-        ? 'queensNoHint'
-        : 'queensInconsistentMarks',
-    );
-  }
-  renderQueensBoard();
 }
 
 function toggleQueen(row, col) {
@@ -1497,9 +1342,6 @@ function toggleQueen(row, col) {
     (placement) => placement.row !== row || placement.col !== col,
   );
   activeGameState.completed = false;
-  activeGameState.hintMessage = '';
-  activeGameState.hintCells.clear();
-  activeGameState.hintData = null;
   if (nextState === 'queen') {
     activeGameState.placements.push({ row, col });
   }
@@ -1509,9 +1351,6 @@ function toggleQueen(row, col) {
 function clearQueensBoard() {
   if (!activeGameState) return;
   activeGameState.completed = false;
-  activeGameState.hintMessage = '';
-  activeGameState.hintCells.clear();
-  activeGameState.hintData = null;
   activeGameState.placements = [];
   activeGameState.cellStates.clear();
   renderQueensBoard();
@@ -1627,29 +1466,6 @@ function formatDuration(seconds) {
   });
 }
 
-function formatTangoHint(hint) {
-  return t('tangoHintPrefix', {
-    row: hint.row + 1,
-    col: hint.col + 1,
-    value: t(hint.value === 'sun' ? 'tangoHintMustSun' : 'tangoHintMustMoon'),
-    explanation: localizeTangoExplanation(hint.explanation),
-  });
-}
-
-function formatQueensHint(hint) {
-  if (hint.placeQueen) {
-    return t('queensHintPlaceQueen', {
-      row: hint.row + 1,
-      col: hint.col + 1,
-    });
-  }
-  return t('queensHintPrefix', {
-    row: hint.row + 1,
-    col: hint.col + 1,
-    explanation: localizeQueensExplanation(hint.explanation),
-  });
-}
-
 function localizeZipReason(reason) {
   const messages = new Map([
     ['Le chemin ne peut pas repasser sur une case déjà traversée.', 'zipReasonVisited'],
@@ -1661,80 +1477,6 @@ function localizeZipReason(reason) {
     ['Le chemin doit se terminer sur le dernier nœud numéroté.', 'zipReasonFinish'],
   ]);
   return messages.has(reason) ? t(messages.get(reason)) : reason;
-}
-
-function localizeTangoExplanation(explanation) {
-  if (explanation.includes('Le signe « = »')) return t('tangoHintEqual');
-  if (explanation.includes('Le signe « × »')) return t('tangoHintDifferent');
-
-  const triple = explanation.match(
-    /^Ce symbole créerait trois (soleils|lunes) consécutifs sur la (ligne|colonne) (\d+)\.$/,
-  );
-  if (triple) {
-    return t('tangoHintTriple', {
-      symbol: t(triple[1] === 'soleils' ? 'sunPlural' : 'moonPlural'),
-      unit: t(triple[2] === 'ligne' ? 'rowName' : 'columnName', { number: triple[3] }),
-      number: triple[3],
-    });
-  }
-
-  const count = explanation.match(
-    /^La (ligne|colonne) (\d+) doit contenir (\d+) (soleils|lunes) ; avec ce symbole, il n’y aurait plus assez de cases pour les placer\.$/,
-  );
-  if (count) {
-    return t('tangoHintCount', {
-      unit: t(count[1] === 'ligne' ? 'rowName' : 'columnName', { number: count[2] }),
-      number: count[2],
-      count: count[3],
-      symbol: t(count[4] === 'soleils' ? 'sunPlural' : 'moonPlural'),
-    });
-  }
-  return explanation;
-}
-
-function localizeQueensExplanation(explanation) {
-  const direct = explanation.match(
-    /^Cochez la ligne (\d+), colonne (\d+) : cette case (.*)\.$/,
-  );
-  if (direct) {
-    return t('queensHintDirect', {
-      row: direct[1],
-      col: direct[2],
-      reason: localizeQueensConflict(direct[3]),
-    });
-  }
-
-  const forced = explanation.match(
-    /^Il ne reste qu’une seule case possible dans (la ligne|la colonne|la région colorée) (\d+) : ligne (\d+), colonne (\d+)\. Une reine doit y être placée ; cochez cette case, car elle (.*)\.$/,
-  );
-  if (forced) {
-    return t('queensHintForced', {
-      unit: t(
-        forced[1] === 'la ligne'
-          ? 'queensRowUnit'
-          : forced[1] === 'la colonne'
-            ? 'queensColumnUnit'
-            : 'queensRegionUnit',
-        { number: forced[2] },
-      ),
-      row: forced[3],
-      col: forced[4],
-      reason: localizeQueensConflict(forced[5]),
-    });
-  }
-  return explanation;
-}
-
-function localizeQueensConflict(reason) {
-  const sameRow = reason.match(/^se trouve sur la ligne (\d+) de la reine$/);
-  if (sameRow) return t('queensConflictRow', { row: sameRow[1] });
-  const sameColumn = reason.match(/^se trouve dans la colonne (\d+) de la reine$/);
-  if (sameColumn) return t('queensConflictColumn', { col: sameColumn[1] });
-  if (reason === 'se trouve dans la même région colorée que la reine') {
-    return t('queensConflictRegion');
-  }
-  if (reason === 'touche la reine') return t('queensConflictTouch');
-  return reason;
 }
 
 function render(route) {

@@ -39,21 +39,11 @@ test('translates game copy and interpolates values for each locale', () => {
     assert.ok(translate('chooseDifficultyTitle').length > 0);
     assert.ok(translate('chooseDifficultyDescription').length > 0);
     assert.ok(translate('cancel').length > 0);
-    assert.ok(translate('queensHintPlaceQueen', { row: 1, col: 2 }).includes('1'));
-    assert.ok(translate('queensInconsistentMarks').length > 0);
     assert.ok(translate('startGame').length > 0);
     assert.ok(translate('victoryHome').length > 0);
     assert.notEqual(translate('patchesDescription'), 'patchesDescription');
     assert.ok(translate('zipGridLabel', { size: 6 }).includes('6'));
     assert.ok(translate('patchesGridLabel', { size: 6 }).includes('6'));
-    assert.ok(translate('patchesHintPrefix', {
-      row: 1,
-      col: 2,
-      height: 1,
-      width: 2,
-      area: 2,
-      shape: translate('patchesShapeWide'),
-    }).length > 0);
     assert.equal(translate('tangoProgress', { filled: 2, total: 36 }).includes('2'), true);
   }
 });

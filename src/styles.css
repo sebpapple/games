@@ -386,7 +386,6 @@ body[data-game-theme]:not([data-game-theme="home"]) .game-heading .eyebrow { col
 .patches-cell.patch-edge-left { border-left-width: 3px; }
 .patches-cell:hover:not(:disabled) { filter: brightness(.95); }
 .patches-cell:disabled { cursor: default; opacity: 1; }
-.patches-cell.is-hinted { box-shadow: inset 0 0 0 4px #0a66c2; z-index: 2; }
 .patches-clue-mark {
   align-items: center;
   background: color-mix(in srgb, var(--patch-color) 40%, white);
@@ -491,7 +490,6 @@ body[data-game-theme]:not([data-game-theme="home"]) .game-heading .eyebrow { col
 .tango-cell:disabled { cursor: default; opacity: 1; }
 .tango-cell.is-fixed { background: #edf2ee; }
 .tango-cell.has-conflict { background: #ffd2d2; color: #a31919; }
-.tango-cell.is-hinted { box-shadow: inset 0 0 0 4px #0a66c2; position: relative; z-index: 1; }
 .tango-symbol { display: block; height: 58%; max-height: 54px; max-width: 54px; width: 58%; }
 .tango-sun-rays { fill: none; stroke: #cf8600; stroke-linecap: round; stroke-width: 3.5; }
 .tango-sun-disc { fill: #f8c744; stroke: #cf8600; stroke-width: 2; }
@@ -524,11 +522,9 @@ body[data-game-theme]:not([data-game-theme="home"]) .game-heading .eyebrow { col
 .queen-cell:hover { filter: brightness(.92); }
 .queen-cell:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; position: relative; z-index: 1; }
 .queen-cell.has-conflict { background: #ffd2d2; color: #a31919; }
-.queen-cell.is-hinted { box-shadow: inset 0 0 0 4px #0a66c2; }
 .queen-cell.has-conflict span { animation: shake .28s ease-in-out; }
 .game-status { color: var(--muted); font-size: .9rem; line-height: 1.5; min-height: 34px; padding: 11px 2px 3px; }
 .game-status.error { color: #b42318; font-weight: 650; }
-.game-status.hint { color: var(--blue); font-weight: 650; }
 .game-status.success { color: #157347; font-weight: 700; }
 .victory-dialog {
   background: var(--surface);
@@ -654,8 +650,6 @@ body[data-game-theme]:not([data-game-theme="home"]) .game-heading .eyebrow { col
 .secondary-button:hover { background: #f3f8f4; border-color: #b7cbc1; }
 .secondary-button:active, .primary-button:active { transform: translateY(1px); }
 .secondary-button:disabled { cursor: not-allowed; opacity: .5; }
-.hint-button { background: #eff7d8; border-color: #d6e8ad; color: #425a1b; }
-.hint-button:hover { background: #e6f2c5; border-color: #bfd88d; }
 .rules-card {
   background: #ffffffd9;
   border: 1px solid #e2ebe6;
@@ -786,12 +780,10 @@ body[data-game-theme]:not([data-game-theme="home"]) .game-heading .eyebrow { col
   .tango-sun-disc { fill: #ffd263; stroke: #e4a92d; }
   .tango-moon-shape { fill: #a9c1ef; stroke: #7e9bd2; }
   .queen-cell.has-conflict { background: #642c32; color: #ffd9d9; }
-  .queen-cell.is-hinted { box-shadow: inset 0 0 0 4px #7ab8f4; }
   .game-status.success { color: #7cdaa5; }
   .game-status.error { color: #ffaaa5; }
   .secondary-button { background: var(--surface); border-color: var(--line); color: #d0ddd6; }
   .secondary-button:hover { background: #263830; }
-  .hint-button { background: #303d22; border-color: #526339; color: #d6eda5; }
   .rules-card p, .placeholder p { color: var(--muted); }
 }
 
